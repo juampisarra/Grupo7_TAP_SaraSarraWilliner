@@ -7,13 +7,13 @@ class Propiedad(models.Model):
         identificador_fuente = models.CharField(max_length=200)
         direccion = models .CharField(max_length=255, blank= True)
         tipo = models.CharField(max_length=50, blank= True)
-        #acepta nul xq puede ser desconocido
-        precio = models.DecimalField(
-                max_digits=15,
-                decimal_places=2,
-                null= True,
-                blank= True
+        dormitorios = models.PositiveSmallIntegerField(
+                null = True,
+                blank= True,
         )
+        dormitorios_verificados=  models.BooleanField(default= False)
+        #acepta nul xq puede ser desconocido
+     
         precio_venta = models.DecimalField(
                 max_digits=15,
                 decimal_places=2,
@@ -29,7 +29,7 @@ class Propiedad(models.Model):
                 blank=True,
                     )
         moneda_alquiler = models.CharField(max_length=10, blank = True)
-        moneda = models.CharField(max_length=10, blank=True)
+     
         url_original = models.URLField(max_length=1000)
         en_venta = models.BooleanField(default=False)
         en_alquiler = models.BooleanField(default=False)

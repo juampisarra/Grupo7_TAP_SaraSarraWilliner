@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from .models import Propiedad
-# Register your models here.
+
 
 @admin.register(Propiedad)
 class PropiedadAdmin(admin.ModelAdmin):
@@ -24,7 +24,7 @@ class PropiedadAdmin(admin.ModelAdmin):
         "identificador_fuente",
     )
     list_filter =(
-       "fuente",
+    "fuente",
     "tipo",
     "en_venta",
     "en_alquiler",

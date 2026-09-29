@@ -18,6 +18,44 @@ CABECERAS = {
     "User-Agent": "Grupo7-TAP/0.1 (proyecto academico)",
 }
 
+def extraer_dormitorios(url_original):
+    respuesta = requests.get(
+        url_original,
+        headers=CABECERAS,
+        timeout= 15,
+    )
+    #Devuelve el sstado de la request
+    respuesta.raise_for_status()
+
+    #Beautiful Soup extrae datos de páginas web en formato HTML o XML
+    documento = BeautifulSoup(respuesta.text, "html.parser")
+
+    for detalle in documento.select(".ficha_detalle_item"):
+        etiqueta = detalle.select_one("b")
+
+        if not etiqueta:
+            continue
+
+        nombre = etiqueta.get_text("", strip = True)
+
+        if nombre.casefold() != "dormitorios":
+            continue
+
+        textos = list(detalle.stripped_strings)
+
+        if len(textos) < 2:
+            return None
+
+        valor = textos[1]
+
+        try:
+            return int(valor)
+        except ValueError as error:
+            raise ValueError(
+                f"Cantidad de dormitorios inválida: {valor}"
+            ) from error
+    return None
+
 def extraer_pagina(numero_pagina, operacion="venta"):
     if operacion not in URLS_BUSQUEDA:
         raise ValueError(f"Operacion desconocida: {operacion}")

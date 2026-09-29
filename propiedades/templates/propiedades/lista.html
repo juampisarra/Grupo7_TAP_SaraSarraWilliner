@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Propiedades</title>
+</head>
+<body>
+    <h1>Propiedades</h1>
+
+    <form method="get">
+        <label for="operacion">Operación:</label>
+
+        <select
+            id="operacion"
+            name="operacion"
+            onchange="this.form.submit()"
+        >
+            <option
+                value="alquiler"
+                {% if operacion == "alquiler" %}selected{% endif %}
+            >
+                Alquilar
+            </option>
+            <option
+                value="venta"
+                {% if operacion == "venta" %}selected{% endif %}
+            >
+                Comprar
+            </option>
+        </select>
+
+        
+    </form>
+
+    <p>{{ propiedades|length }} resultados</p>
+
+    {% for propiedad in propiedades %}
+        <article>
+            <h2>{{ propiedad.tipo|default:"Tipo no informado" }}</h2>
+
+            <p>
+                {{ propiedad.direccion|default:"Dirección no informada" }}
+            </p>
+
+            {% if propiedad.dormitorios %}
+                <p>Dormitorios: {{ propiedad.dormitorios }}</p>
+            {% else %}
+                <p>Dormitorios: no informado</p>
+            {% endif %}
+
+            {% if operacion == "venta" %}
+                <p>
+                    Venta:
+                    {% if propiedad.precio_venta %}
+                        {{ propiedad.moneda_venta }}
+                        {{ propiedad.precio_venta }}
+                    {% else %}
+                        Consultar precio
+                    {% endif %}
+                </p>
+            {% else %}
+                <p>
+                    Alquiler:
+                    {% if propiedad.precio_alquiler %}
+                        {{ propiedad.moneda_alquiler }}
+                        {{ propiedad.precio_alquiler }}
+                    {% else %}
+                        Consultar precio
+                    {% endif %}
+                </p>
+            {% endif %}
+
+            <a
+                href="{{ propiedad.url_original }}"
+                target="_blank"
+                rel="noopener noreferrer"
+            >
+                Ver aviso original
+            </a>
+        </article>
+
+        <hr>
+    {% empty %}
+        <p>No hay propiedades disponibles.</p>
+    {% endfor %}
+</body>
+</html>
