@@ -8,6 +8,7 @@ from propiedades.scraping.brega import (
     extraer_dormitorios,
     extraer_todas_las_paginas,
     )
+from propiedades.scraping.geocoding import obtener_coordenadas
 
 
 class Command(BaseCommand):
@@ -18,7 +19,9 @@ class Command(BaseCommand):
         omitidas = 0
 
         for operacion in ("venta", "alquiler"):
+            self.stdout.write(f"Iniciando extracción de {operacion}...")
             datos = extraer_todas_las_paginas(operacion)
+            self.stdout.write(f"Se encontraron {len(datos)} propiedades de {operacion}.")
 
             for dato in datos:
                 identificador = dato["identificador_fuente"]
@@ -75,6 +78,7 @@ class Command(BaseCommand):
         errores_detalle = 0
 
         for identificador, valores in datos_por_identificador.items():
+            self.stdout.write(f"Procesando propiedad {identificador}...")
             propiedad_existente = Propiedad.objects.filter(
                 fuente = "Brega",
                 identificador_fuente = identificador,
@@ -107,6 +111,14 @@ class Command(BaseCommand):
                     detalles_verificados +=1
                 finally:
                     time.sleep(0.5)
+
+            if not propiedad_existente or not propiedad_existente.latitud:
+                if valores.get("direccion"):
+                    lat, lng = obtener_coordenadas(valores["direccion"])
+                    if lat is not None and lng is not None:
+                        valores["latitud"] = lat
+                        valores["longitud"] = lng
+                    time.sleep(1.5) # Rate limit de Nominatim (SIEMPRE pausar)
 
             _, fue_creada = Propiedad.objects.update_or_create(
                 fuente = "Brega",

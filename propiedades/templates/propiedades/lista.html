@@ -40,6 +40,9 @@
 
             <p>
                 {{ propiedad.direccion|default:"Dirección no informada" }}
+                {% if propiedad.latitud and propiedad.longitud %}
+                    <br><small>🗺️ Coordenadas: {{ propiedad.latitud }}, {{ propiedad.longitud }}</small>
+                {% endif %}
             </p>
 
             {% if propiedad.dormitorios %}

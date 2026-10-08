@@ -34,6 +34,9 @@ class Propiedad(models.Model):
         en_venta = models.BooleanField(default=False)
         en_alquiler = models.BooleanField(default=False)
         actualizada_en = models.DateTimeField(auto_now = True)
+        
+        latitud = models.FloatField(null=True, blank=True)
+        longitud = models.FloatField(null=True, blank=True)
 
         #No se puede repetir fuente | identificador_fuente
         #Se puede Brega | 123, Avantix | 123
