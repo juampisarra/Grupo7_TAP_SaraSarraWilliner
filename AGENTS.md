@@ -28,20 +28,69 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | Render | Opción principal de deployment, considerando la necesidad de ejecutar jobs y utilizar Elasticsearch. El despliegue y la ubicación concreta de los servicios aún deben resolverse. |
 | Frontend | Tecnología e implementación pendientes, incluida la interfaz de mapa. |
 
-Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo; su integración todavía está pendiente. SQLite es la configuración actual del prototipo, no la base principal elegida para el proyecto.
+Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron las migraciones hasta `0010` en Supabase. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS y Elasticsearch siguen pendientes. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
 
 ## Estado real del repositorio
 
 Al actualizar este contexto, el código contiene:
 
-- Un proyecto Django en `config/` y la aplicación `propiedades/`, con SQLite configurado en `config/settings.py`.
-- El modelo `Propiedad`, con fuente, identificador de origen, dirección, tipo, dormitorios y su estado de verificación, operaciones de venta/alquiler, precios y monedas separados por operación, URL original y fecha de actualización.
-- Una restricción única por `(fuente, identificador_fuente)` y un importador que usa `update_or_create` para crear o actualizar publicaciones de Brega.
+- Un proyecto Django en `config/` y la aplicación `propiedades/`. `config/database.py` permite SQLite o PostgreSQL según `DB_ENGINE`; `config/settings.py` carga `.env` sin sobrescribir variables del sistema. `.env.example` documenta los valores; no contiene credenciales reales.
+- El modelo `Propiedad`, con fuente, identificador de origen, dirección, tipo, dormitorios y su estado de verificación, operaciones de venta/alquiler, precios y monedas separados por operación, URL original, fecha de actualización y latitud/longitud opcionales. Las coordenadas son campos FloatField del prototipo, todavía sin representación PostGIS.
+- Ampliación acotada del modelo en la migración `0008`: título, descripción, características como texto, ciudad, provincia, zona, ambientes y baños. Dormitorios ya existía. No se agregan columnas para cada amenidad: cochera, parrilla y otras características se conservan en el texto extraído. Los textos faltantes quedan vacíos y las cantidades desconocidas en NULL; cero es un valor válido.
+- La migración `0009` agrega `ubicacion_aproximada` (NULL: precisión desconocida; True: la fuente publica un área) y `radio_ubicacion_m` opcional. Se conserva la precisión de la fuente: un círculo no representa una dirección exacta ni garantiza que la propiedad esté en su centro.
+- Una restricción única por `(fuente, identificador_fuente)` y persistencia común con `update_or_create` en `propiedades/ingesta.py`.
 - Un scraper Brega en `propiedades/scraping/brega.py` que consulta `/Venta` y `/Alquiler` con Requests y Beautiful Soup, recorre páginas con `p`, evita identificadores repetidos y termina ante un lote vacío o sin identificadores nuevos. Tiene un límite de seguridad de 50 páginas, timeout de 15 segundos y pausas de 0,5 segundos; no tiene reintentos implementados.
-- Normalización básica de precios, monedas, tipos y operaciones en `propiedades/scraping/normalizacion.py`. El comando `python manage.py importar_brega` integra la ingesta y consulta dormitorios en las fichas; reutiliza los dormitorios ya verificados.
+- Normalización básica de precios, monedas, tipos y operaciones en `propiedades/scraping/normalizacion.py`. El contrato `PublicacionNormalizada` y el protocolo `AdaptadorFuente` están en `propiedades/scraping/contratos.py`; `AdaptadorBrega` traduce la extracción existente a ese contrato.
+- El flujo común `importar_fuente` en `propiedades/ingesta.py` consolida operaciones/precios, consulta una ficha completa por aviso en cada ingesta, gestiona coordenadas y persiste. Las fuentes se registran en `propiedades/scraping/fuentes.py`. Solo está registrada Brega. Ya no se omiten fichas por tener dormitorios verificados: también deben refrescarse descripción y características. Si falla la ficha se conservan los detalles guardados; la ausencia de un dato nuevo (None) tampoco borra el anterior. La detección de datos retirados de una ficha queda pendiente.
+- `python manage.py importar_propiedades brega` ejecuta el flujo común. `python manage.py importar_brega` se conserva como alias compatible.
+- Geocodificación experimental con geopy/Nominatim en `propiedades/scraping/geocoding.py`, limitada a direcciones con ciudad explícita y con separación mínima de 1,5 segundos entre consultas por proceso. Sin ciudad no se consulta el proveedor: no se supone Rafaela ni se deducen localidades por nombres de calles.
+- Si cambia dirección, ciudad, provincia o zona, se invalidan ambas coordenadas anteriores y se intenta resolver la nueva ubicación solo si hay ciudad explícita. Si no se encuentra o el proveedor falla, quedan vacías; los errores del proveedor se registran. Un par incompleto también se invalida y se intenta completar. Un par completo se reutiliza si la ubicación no cambió, incluso si alguna coordenada vale cero.
+- Brega extrae el título Open Graph, descripción de `#prop-desc` (limpiando HTML escapado, con respaldo Open Graph), características de `.ficha_ul`, cantidades de `.ficha_detalle_item`/`#lista_informacion_basica` y ubicación textual. El rótulo `Ubicación` puede ser localidad o barrio: se guarda como `zona`, nunca se transforma automáticamente en ciudad. Ciudad/provincia solo se extraen si aparecen con esos rótulos explícitos.
+- Brega ahora extrae también el par latitud/longitud y radio del `L.circle([latitud, longitud], radio, {...})` publicado dentro de `#ficha_mapa`, sin ejecutar JavaScript ni consultar servicios adicionales. En tres fichas reales se verificaron círculos distintos con radio de 400 metros. No se extrae el centro de `setView`, ni mapas del footer, ni se fija 400 como valor universal. Formatos no reconocidos quedan sin coordenadas nuevas; valores fuera de rango, radios inválidos o varios círculos distintos se descartan con advertencia.
+- Las coordenadas válidas de la fuente tienen prioridad sobre la geocodificación, incluso sin ciudad; se renuevan en cada ingesta y conservan precisión/radio. Sin coordenadas de fuente se mantiene la lógica de invalidación y geocodificación con ciudad explícita. No se mezclan pares parciales con datos anteriores. Al invalidar coordenadas también se borra precisión/radio. Las coordenadas históricas conservadas no se consideran auditadas.
+- Geocodificación inversa opcional en `propiedades/enriquecimiento.py`, activada únicamente con `--completar-ubicacion`. Completa ciudad/provincia faltantes, sin modificar coordenadas, zona ni precisión. La migración `0010` agrega `ciudad_origen`, `provincia_origen` y el modelo `ConsultaLocalidad` para caché persistente por par de coordenadas. Origen `fuente` identifica valores explícitos recibidos en la ingesta; `nominatim_inversa` identifica nombres inferidos. El origen vacío de datos históricos significa procedencia no registrada, no una inferencia confirmada.
+- La caché guarda respuestas resueltas, vacías, ambiguas y errores. Las respuestas no fallidas se reutilizan sin nueva consulta; los errores temporales se reintentan después de 24 horas. Cambiar las coordenadas selecciona otra entrada de caché y borra solo nombres inferidos del punto anterior, incluso sin activar el enriquecimiento. Los datos explícitos siempre tienen prioridad y los nombres inferidos no se usan para volver a geocodificar una dirección.
+- El enriquecimiento acepta `city`/`town`/`village` y `state` con país `ar`; no confunde barrio o departamento con ciudad. Rechaza localidades contradictorias, estructuras inválidas y resultados incompatibles con valores ya conocidos. Una respuesta parcial puede completar solo uno de los campos. Estos controles no detectan si el círculo aproximado cruza límites administrativos: los nombres siguen siendo inferencias, no datos garantizados. No se calculan límites ni distancias en Python.
+- Las consultas directas e inversas a Nominatim comparten un limitador de 1,5 segundos, sin reintentos inmediatos. Ejecutar un solo job que utilice el proveedor público a la vez; la limitación es por proceso y no coordina procesos distintos. Fallos del proveedor se registran y permiten continuar guardando publicaciones.
 - Una vista y plantilla en `/propiedades/` que consultan datos guardados, filtran por venta o alquiler y enlazan al aviso original. El filtro predeterminado es alquiler.
 
-Todavía no hay integración con Supabase/PostgreSQL, PostGIS ni Elasticsearch; tampoco scrapers de Avantix u otra tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de precio/tipo/geográficos, API de búsqueda ni mapa. `propiedades/tests.py` no contiene pruebas implementadas. Esta revisión del código no equivale a una verificación actual de los sitios externos ni a una ejecución de la ingesta.
+La conexión y las migraciones hasta `0010` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
+
+No hay integración PostGIS o Elasticsearch; tampoco scrapers de Avantix u otra tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de precio/tipo/geográficos, API de búsqueda ni mapa. Las 48 pruebas automáticas pasaron usando SQLite y servicios simulados. Para ejecutarlas en PowerShell sin usar Supabase:
+
+```powershell
+$env:DB_ENGINE = "sqlite"
+.\.venv\Scripts\python.exe -X utf8 manage.py test propiedades config
+Remove-Item Env:DB_ENGINE
+```
+
+El ejemplo supone que no había una variable de sistema `DB_ENGINE` previamente definida en esa terminal; si la había, guardar y restaurar su valor. La selección temporal de SQLite evita crear una base de pruebas en Supabase. También se verificaron ausencia de cambios de modelo sin migración (`makemigrations --check --dry-run`) y dependencias instaladas (`pip check`).
+
+## Ejecutar la ingesta local
+
+Para instalar dependencias, configurar `.env`, conectar Supabase y conservar datos de SQLite, seguir [docs/base_de_datos.md](docs/base_de_datos.md). La selección es `DB_ENGINE=sqlite` (predeterminado) o `DB_ENGINE=postgresql` con `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` y `PGSSLMODE`. PostgreSQL usa TLS por defecto. No se guardan credenciales en el código ni se requiere una API key de Supabase. Ejecutar migraciones antes de la ingesta. La exportación/importación documentada está destinada a un PostgreSQL vacío, no a mezclar bases con publicaciones existentes. En Windows usar `python.exe -X utf8` para `dumpdata`/`loaddata` y conservar correctamente los acentos.
+
+Desde la raíz del proyecto, en PowerShell, usar el Python del entorno virtual y agregar al final el nombre de la fuente que se quiere scrapear:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py importar_propiedades <fuente>
+```
+
+Reemplazar `<fuente>` por el nombre registrado de la inmobiliaria, sin los signos `<` y `>`; no se debe colocar una URL. Actualmente solo está disponible `brega`:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py importar_propiedades brega
+```
+
+El nombre de la fuente es obligatorio. Para incorporar otra página, primero debe implementarse su adaptador y registrarse en `propiedades/scraping/fuentes.py`; escribir un nombre nuevo en el comando no agrega soporte automáticamente. La ingesta consulta los servicios externos y crea o actualiza publicaciones en la base configurada.
+
+Para completar opcionalmente ciudad/provincia faltantes desde las coordenadas, usando la caché persistente:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py importar_propiedades brega --completar-ubicacion
+```
+
+El alias `importar_brega` también admite `--completar-ubicacion`. Sin esa opción no se hacen consultas inversas nuevas. El resumen incluye `Localidades completadas`, que cuenta avisos donde se completó al menos un campo, incluso desde caché. Los cambios de coordenadas siempre invalidan nombres inferidos anteriores.
 
 ## Arquitectura y flujos esperados
 
@@ -76,6 +125,10 @@ El backend Python coordina las consultas y devuelve un único conjunto de result
 
 Preparar desde el comienzo una estructura común para aproximadamente tres inmobiliarias. Cada fuente tendrá su scraper/adaptador y configuración; todos deberán producir el mismo modelo normalizado. Se puede compartir un adaptador entre fuentes de la misma plataforma cuando se compruebe su compatibilidad. La lógica específica de cada sitio debe quedar separada de la persistencia, normalización e indexación comunes.
 
+Implementación común actual: cada adaptador expone `nombre`, `operaciones`, `extraer(operacion)` y `extraer_detalles(url)`. `extraer` devuelve objetos `PublicacionNormalizada`, uno por aviso y operación, con precio/moneda de ese listado. `extraer_detalles` devuelve `DetallesPropiedad` con datos opcionales de la ficha; los errores de lectura deben propagarse. El núcleo consolida por identificador dentro de cada fuente y mantiene precios separados. Para incorporar una fuente, implementar ese contrato y registrarla, sin copiar el importador. No se creó un adaptador Tokko compartido ni se verificó Avantix.
+
+Ciudad/provincia y zona se persisten cuando se aportan, sin inferirlas por el foco del proyecto. La indexación no está implementada: la persistencia está concentrada en `guardar_publicacion`; la integración futura deberá indexar después de guardar y resolver recuperación/reconstrucción. La política de publicaciones retiradas sigue pendiente.
+
 Los datos a contemplar, según lo que realmente proporcione cada fuente, incluyen:
 
 - Identificador de la publicación y la inmobiliaria de origen.
@@ -86,6 +139,8 @@ Los datos a contemplar, según lo que realmente proporcione cada fuente, incluye
 - Título, descripción y características disponibles.
 - URL original e imágenes.
 - Latitud, longitud y una representación compatible con PostGIS cuando existan coordenadas.
+
+El contrato común incluye latitud/longitud opcionales, indicación de ubicación aproximada y radio publicado en metros. La extracción y validación numérica no realizan consultas geográficas. Los futuros filtros PostGIS deben contemplar la incertidumbre de las áreas publicadas; no tratar sus centros como ubicaciones exactas.
 
 Estos son objetivos del modelo común, no campos ya implementados en su totalidad. Representar los datos faltantes sin inventarlos y distinguir ausencia de información de errores de lectura. No asumir que todas las publicaciones tienen coordenadas ni completar su ciudad únicamente por el foco inicial en Rafaela. Mantener diferenciadas monedas y unidades: un filtro de precio debe indicar la moneda y la operación para comparar valores correctamente.
 
@@ -120,7 +175,7 @@ Ejemplo: `departamento con cochera`, operación alquiler, tipo departamento, pre
 
 ## Geografía exclusivamente con PostGIS
 
-Guardar las coordenadas disponibles en PostgreSQL y utilizarlas mediante una representación espacial de PostGIS. Si una fuente solo aporta una dirección, analizar más adelante un mecanismo de geocodificación; todavía no hay proveedor ni proceso elegido. No inventar ubicaciones para datos ausentes.
+Guardar las coordenadas disponibles en PostgreSQL y utilizarlas mediante una representación espacial de PostGIS. El prototipo incluye geocodificación experimental mediante geopy/Nominatim, únicamente con ciudad explícita. Su uso definitivo, validación de precisión y extracción de localidad siguen pendientes. No inventar ubicaciones para datos ausentes. No se implementaron filtros espaciales fuera de PostGIS.
 
 Las modalidades previstas son:
 
@@ -148,7 +203,7 @@ La hipótesis es compartir un adaptador Tokko entre Brega y Avantix, cambiando l
 
 ## Plan incremental acordado
 
-1. Revisar el código existente y separar el núcleo común de la lógica específica de Brega sin sobrearquitecturar.
+1. Ampliar el contrato y flujo de ingesta común ya implementados con los datos adicionales que aporten las fuentes, manteniendo separada la extracción específica.
 2. Completar la primera inmobiliaria de punta a punta: extracción, modelo normalizado, persistencia en Supabase/PostgreSQL e indexación en Elasticsearch.
 3. Verificar altas, actualizaciones, ausencia de duplicados por fuente y reconstrucción del índice desde PostgreSQL; probar búsqueda textual y ranking.
 4. Incorporar la segunda inmobiliaria y después la tercera, reutilizando el flujo común y verificando los datos de cada fuente.
@@ -160,10 +215,10 @@ Las prioridades inmediatas son arquitectura de scrapers, modelo común, persiste
 ## Decisiones de implementación pendientes
 
 - Tercera inmobiliaria y compatibilidad del adaptador compartido con Avantix.
-- Detalles del esquema común, configuración y migración a Supabase/PostgreSQL, y representación espacial en PostGIS.
+- Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; representación espacial en PostGIS, tratamiento de ubicaciones aproximadas en búsquedas y futuras ampliaciones del esquema común. El proyecto Supabase, conexión y migraciones hasta `0010` están verificados.
 - Frecuencia y ejecución programada de la ingesta; política de publicaciones retiradas y recuperación de errores de indexación.
 - Configuración de Elasticsearch, coordinación de consultas, orden y paginación.
-- Geocodificación de direcciones y tratamiento de ubicaciones ausentes.
+- Validación del geocodificador experimental, extracción explícita de ciudad/provincia, auditoría de coordenadas históricas y tratamiento definitivo de ubicaciones ausentes.
 - Tecnología del frontend, mapa y contrato de la API futura.
 - Configuración concreta de Render y dónde ejecutar cada servicio, incluido Elasticsearch.
 

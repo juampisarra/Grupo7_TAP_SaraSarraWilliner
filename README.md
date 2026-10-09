@@ -23,7 +23,7 @@ La prioridad actual es el backend: scrapers, normalización, persistencia, inges
 | Render | Opción principal de deployment, considerando jobs y Elasticsearch; configuración y distribución de servicios pendientes. |
 | Frontend | Tecnología e implementación pendientes, incluido el mapa. |
 
-PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite es la configuración actual del prototipo; la integración con el stack objetivo todavía debe implementarse.
+PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0010` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
 
 ## Flujo previsto
 
@@ -48,17 +48,22 @@ Las búsquedas consultan la información guardada y no ejecutan scraping. El bac
 
 Los filtros previstos incluyen tipo, venta/alquiler, precio mínimo/máximo con moneda y ubicación. Una propiedad puede tener venta y alquiler con precios distintos. El modelo común también contemplará, según disponibilidad, dirección, ciudad, barrio, dormitorios, ambientes, superficie y unidad, título, descripción, características, imágenes, URL y coordenadas. Los datos faltantes se representarán sin inventarlos.
 
-La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar un área. PostGIS resolverá las consultas espaciales; al implementarlas se definirán la representación espacial, las unidades y funciones apropiadas como `ST_DWithin`, `ST_Within` o `ST_Contains`, y se evaluarán índices GiST. La geocodificación de direcciones queda pendiente.
+La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar un área. PostGIS resolverá las consultas espaciales; al implementarlas se definirán la representación espacial, las unidades y funciones apropiadas como `ST_DWithin`, `ST_Within` o `ST_Contains`, y se evaluarán índices GiST. Hay geocodificación experimental; su validación y la extracción de localidad quedan pendientes.
 
 ## Qué existe actualmente
 
-- Proyecto Django `config/` y aplicación `propiedades/`, con SQLite local.
+- Proyecto Django `config/` y aplicación `propiedades/`, con SQLite local y configuración PostgreSQL/Supabase mediante `.env` y psycopg.
 - Modelo `Propiedad` con procedencia, dirección, tipo, dormitorios, venta/alquiler, precios y monedas por operación, URL original y fecha de actualización; unicidad por `(fuente, identificador_fuente)`.
+- Título, descripción, características como texto, ciudad/provincia/zona, ambientes y baños opcionales, agregados en la migración `0008`. Las amenidades no necesitan una columna individual.
 - Scraper Brega con Requests y Beautiful Soup, paginación y normalización básica.
-- Comando `importar_brega` que crea o actualiza publicaciones y consulta dormitorios en las fichas, reutilizando los ya verificados.
+- Flujo común en `propiedades/ingesta.py`, contrato `PublicacionNormalizada` y adaptador Brega registrado. El comando `importar_propiedades brega` crea o actualiza publicaciones; `importar_brega` es un alias compatible.
+- Brega consulta la ficha completa en cada ingesta y obtiene texto, características y cantidades. Los errores de ficha conservan los detalles guardados. El rótulo ambiguo `Ubicación` se guarda como zona, sin asumir ciudad.
+- Brega extrae coordenadas de los círculos publicados en el mapa de la ficha y conserva `ubicacion_aproximada` y `radio_ubicacion_m` (migración `0009`). No requiere ciudad para guardar coordenadas de la fuente. Esas posiciones representan áreas aproximadas, no direcciones exactas.
+- La geocodificación experimental con geopy/Nominatim se usa cuando faltan coordenadas de fuente y hay ciudad explícita; no asume Rafaela. Los cambios de ubicación invalidan coordenadas anteriores salvo que la fuente aporte un par nuevo.
+- Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler y enlace al aviso original; muestra alquileres por defecto.
 
-Todavía no se integraron Supabase/PostgreSQL, PostGIS ni Elasticsearch. Tampoco existen el scraper Avantix, la tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de tipo/precio/geografía, API de búsqueda o mapa. El archivo `propiedades/tests.py` todavía no contiene pruebas implementadas. Esta descripción surge de revisar el código; no implica una ejecución reciente del scraper contra la fuente.
+La conexión y migraciones hasta `0010` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. No se integraron PostGIS o Elasticsearch. Tampoco existen el scraper Avantix, la tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de tipo/precio/geografía, API de búsqueda o mapa. Pasaron 48 pruebas de ingesta, extracción, comandos, geocodificación y configuración de bases (`python manage.py test propiedades config` con SQLite). Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 
@@ -82,17 +87,17 @@ Para iniciar el servidor de desarrollo:
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos guardados; sin ingesta previa estará vacío. Estos comandos usan la configuración SQLite actual y no configuran Supabase, Elasticsearch, PostGIS ni un despliegue en Render.
+Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos guardados; sin ingesta previa estará vacío. Sin configurar `.env`, estos comandos usan SQLite. Para conectar Supabase/PostgreSQL y trasladar publicaciones existentes, seguir [la guía de bases de datos](docs/base_de_datos.md). Elasticsearch, PostGIS y el despliegue en Render siguen pendientes.
 
 ## Próximos pasos
 
-1. Separar el flujo común de la lógica específica de Brega y definir el modelo normalizado.
+1. Ampliar el contrato normalizado común ya implementado con los datos adicionales que aporten las fuentes.
 2. Completar la primera fuente con persistencia en Supabase/PostgreSQL e indexación en Elasticsearch; verificar altas, actualizaciones, duplicados por fuente, reconstrucción del índice y búsqueda textual.
 3. Incorporar una segunda y luego una tercera inmobiliaria reutilizando el flujo común. Avantix es la siguiente fuente propuesta; la tercera sigue pendiente.
 4. Integrar PostGIS y preparar coordenadas, consultas por radio/área e índices espaciales.
 5. Coordinar texto, relevancia y filtros desde el backend; desarrollar frontend y mapa posteriormente.
 
-La frecuencia de actualización, geocodificación, tratamiento de publicaciones retiradas, coordinación/paginación de búsquedas y configuración concreta del despliegue siguen pendientes. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
+La frecuencia de actualización, validación de la geocodificación experimental y extracción de localidad, tratamiento de publicaciones retiradas, coordinación/paginación de búsquedas y configuración concreta del despliegue siguen pendientes. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
 
 ## Contexto para colaborar
 
