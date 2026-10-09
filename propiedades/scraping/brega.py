@@ -1,7 +1,12 @@
 from urllib.parse import urljoin
 import time
+import re
+import unicodedata
+import logging
+import math
 import requests
 from bs4 import BeautifulSoup
+from .contratos import DetallesPropiedad, PublicacionNormalizada
 from .normalizacion import (
         normalizar_precio,
         normalizar_tipo,
@@ -18,43 +23,120 @@ CABECERAS = {
     "User-Agent": "Grupo7-TAP/0.1 (proyecto academico)",
 }
 
-def extraer_dormitorios(url_original):
+logger = logging.getLogger(__name__)
+
+
+def leer_ubicacion_mapa(documento):
+    """Lee el círculo publicado en la ficha, nunca el centro/zoom del mapa.
+
+    No ejecuta JavaScript ni calcula distancias. El radio es un dato de la fuente.
+    Si el formato no se reconoce, no inventa coordenadas.
+    """
+    mapa = documento.select_one("#ficha_mapa")
+    if mapa is None:
+        return {}
+    numero = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
+    patron = (
+        rf"\bL\.circle\s*\(\s*\[\s*({numero})\s*,\s*({numero})\s*\]"
+        rf"\s*,\s*({numero})\s*,\s*\{{"
+    )
+    circulos = {
+        tuple(float(valor) for valor in coincidencia)
+        for script in mapa.select("script")
+        for coincidencia in re.findall(patron, script.get_text())
+    }
+    if not circulos:
+        return {}
+    if len(circulos) != 1:
+        logger.warning("Ficha Brega con varios círculos distintos; ubicación no extraída")
+        return {}
+    latitud, longitud, radio = circulos.pop()
+    if not (
+        all(math.isfinite(valor) for valor in (latitud, longitud, radio))
+        and -90 <= latitud <= 90 and -180 <= longitud <= 180 and radio > 0
+    ):
+        logger.warning("Ficha Brega con coordenadas o radio inválidos")
+        return {}
+    return {
+        "latitud": latitud, "longitud": longitud,
+        "ubicacion_aproximada": True, "radio_ubicacion_m": radio,
+    }
+
+def extraer_detalles(url_original):
     respuesta = requests.get(
         url_original,
         headers=CABECERAS,
         timeout= 15,
     )
-    #Devuelve el sstado de la request
     respuesta.raise_for_status()
+    return leer_detalles(respuesta.text)
 
-    #Beautiful Soup extrae datos de páginas web en formato HTML o XML
-    documento = BeautifulSoup(respuesta.text, "html.parser")
 
+def _etiqueta(texto):
+    texto = unicodedata.normalize("NFKD", texto.casefold())
+    return " ".join("".join(c for c in texto if not unicodedata.combining(c)).split())
+
+
+def leer_detalles(html):
+    """Selectores verificados en fichas Brega; no infiere datos de la prosa."""
+    documento = BeautifulSoup(html, "html.parser")
+    if not documento.select_one(".ficha_detalle_item, #lista_informacion_basica, #prop-desc"):
+        raise ValueError("No se reconoció la estructura de la ficha Brega")
+    valores = {}
     for detalle in documento.select(".ficha_detalle_item"):
         etiqueta = detalle.select_one("b")
+        if etiqueta:
+            textos = list(detalle.stripped_strings)
+            if len(textos) > 1:
+                valores[_etiqueta(etiqueta.get_text())] = " ".join(textos[1:])
+    for item in documento.select("#lista_informacion_basica li"):
+        nombre, separador, valor = item.get_text(" ", strip=True).partition(":")
+        if separador:
+            valores[_etiqueta(nombre)] = valor.strip()
 
-        if not etiqueta:
-            continue
-
-        nombre = etiqueta.get_text("", strip = True)
-
-        if nombre.casefold() != "dormitorios":
-            continue
-
-        textos = list(detalle.stripped_strings)
-
-        if len(textos) < 2:
+    def cantidad(nombre):
+        valor = valores.get(nombre)
+        if valor is None or not valor.strip():
             return None
+        if _etiqueta(valor) in ("no informado", "no especificado", "consultar", "-", "s/d"):
+            return None
+        if not re.fullmatch(r"\d+", valor) or int(valor) > 32767:
+            raise ValueError(f"Cantidad de {nombre} inválida: {valor}")
+        return int(valor)
 
-        valor = textos[1]
+    titulo = documento.select_one("meta[property='og:title']")
+    descripcion = documento.select_one("#prop-desc")
+    # El sitio entrega HTML escapado dentro de #prop-desc.
+    texto_descripcion = (
+        BeautifulSoup(descripcion.get_text(" ", strip=True), "html.parser").get_text(" ", strip=True)
+        if descripcion else None
+    )
+    if not texto_descripcion:
+        meta = documento.select_one("meta[property='og:description']")
+        texto_descripcion = meta.get("content") if meta else None
+    caracteristicas = list(dict.fromkeys(
+        item.get_text(" ", strip=True)
+        for item in documento.select(".ficha_ul li")
+        if item.get_text(" ", strip=True)
+    ))
+    return DetallesPropiedad(
+        titulo=titulo.get("content") if titulo else None,
+        descripcion=texto_descripcion,
+        caracteristicas="\n".join(caracteristicas) or None,
+        # 'Ubicación' puede ser un barrio. No se convierte en ciudad.
+        zona=valores.get("ubicacion"),
+        ciudad=valores.get("ciudad"),
+        provincia=valores.get("provincia"),
+        dormitorios=cantidad("dormitorios"),
+        ambientes=cantidad("ambientes"),
+        banos=cantidad("banos"),
+        **leer_ubicacion_mapa(documento),
+    )
 
-        try:
-            return int(valor)
-        except ValueError as error:
-            raise ValueError(
-                f"Cantidad de dormitorios inválida: {valor}"
-            ) from error
-    return None
+
+def extraer_dormitorios(url_original):
+    """Compatibilidad para llamadas anteriores; la ingesta usa la ficha completa."""
+    return extraer_detalles(url_original).dormitorios
 
 def extraer_pagina(numero_pagina, operacion="venta"):
     if operacion not in URLS_BUSQUEDA:
@@ -163,6 +245,35 @@ def extraer_todas_las_paginas(operacion = "venta", max_paginas=50):
         )
 
     return propiedades
+
+class AdaptadorBrega:
+    """Traduce la extracción al contrato común, sin persistir datos."""
+
+    nombre = "Brega"
+    operaciones = ("venta", "alquiler")
+
+    def extraer(self, operacion):
+        return [
+            PublicacionNormalizada(
+                identificador_fuente=dato["identificador_fuente"],
+                url_original=dato["url_original"],
+                direccion=dato["direccion"] or "",
+                tipo=dato["tipo"],
+                precio=dato["precio"],
+                moneda=dato["moneda"],
+                en_venta=dato["en_venta"],
+                en_alquiler=dato["en_alquiler"],
+                # Los selectores actuales no extraen una ciudad explícita.
+            )
+            for dato in extraer_todas_las_paginas(operacion)
+        ]
+
+    def extraer_dormitorios(self, url_original):
+        return extraer_dormitorios(url_original)
+
+    def extraer_detalles(self, url_original):
+        return extraer_detalles(url_original)
+
 
 if __name__ == "__main__":
        for operacion in URLS_BUSQUEDA:
