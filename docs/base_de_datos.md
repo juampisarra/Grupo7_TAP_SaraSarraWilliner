@@ -9,10 +9,21 @@ Desde la raíz del proyecto, en PowerShell:
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
-.\.venv\Scripts\python.exe manage.py migrate
 ```
 
-Copiar `.env.example` solo si todavía no existe `.env`, para conservar cualquier configuración propia. Con `DB_ENGINE=sqlite` se usa `db.sqlite3`; sin `.env` también. Las variables del sistema tienen prioridad sobre `.env`. Este archivo y `backups/` están excluidos de Git.
+Copiar `.env.example` solo si todavía no existe `.env`, para conservar cualquier configuración propia. Antes de ejecutar Django, completar `DJANGO_SECRET_KEY` con una clave propia, generada mediante:
+
+```powershell
+.\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+Guardar el resultado en `.env`, mantener `DJANGO_DEBUG=True` y `DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1` para desarrollo, y guardar el archivo como UTF-8 sin BOM. No compartir la clave ni subirla a Git. Con `DB_ENGINE=sqlite` se usa `db.sqlite3`; SQLite también es la selección predeterminada si falta `DB_ENGINE`, pero Django requiere la clave secreta incluso con esa base. Las variables del sistema tienen prioridad sobre `.env`. Este archivo y `backups/` están excluidos de Git. Para Render, ver [la guía del despliegue](despliegue.md).
+
+Aplicar las migraciones con el entorno ya configurado:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py migrate
+```
 
 La migración `0008` agrega campos opcionales sin eliminar publicaciones. Los registros existentes reciben textos vacíos y cantidades NULL; una nueva ingesta podrá completar los datos.
 

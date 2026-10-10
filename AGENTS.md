@@ -25,7 +25,7 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | Supabase / PostgreSQL | Base de datos principal y fuente de verdad: persistencia, información completa de las propiedades y filtros estructurados. |
 | PostGIS | Extensión de PostgreSQL responsable de toda la lógica geográfica: coordenadas, distancia, radio, áreas y consultas e índices espaciales. No es una base de datos independiente. |
 | Elasticsearch / Elastic Cloud | Elasticsearch es el índice especializado exclusivamente en búsqueda de texto completo y ranking por relevancia; se alojará en Elastic Cloud. No reemplaza PostgreSQL ni realiza filtros geográficos. |
-| Render | Alojamiento previsto de Django en un servicio web gratuito, conectado a Supabase y Elastic Cloud. La configuración y el despliegue siguen pendientes. |
+| Render | Django ya está desplegado en un servicio web gratuito y conectado a Supabase. La conexión futura con Elastic Cloud sigue pendiente. |
 | GitHub Actions | Ejecución automática del job de ingesta en un runner estándar de GitHub. Inicialmente ejecutará Brega mediante el comando común; el workflow y su frecuencia siguen pendientes. |
 | Frontend | Tecnología e implementación pendientes, incluida la interfaz de mapa. |
 
@@ -33,7 +33,7 @@ Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. 
 
 ### Entorno objetivo y despliegue
 
-Entregar un sitio accesible desde una URL pública. Utilizar Django en Render, PostgreSQL y PostGIS en Supabase, Elasticsearch en Elastic Cloud y GitHub Actions para la ingesta automática. Las búsquedas del sitio desplegado deben funcionar sin depender de una computadora del equipo. Conservar la ejecución local para desarrollo y pruebas; una presentación exclusivamente local requeriría revisar el alcance de la entrega con el equipo. Estos servicios definen el entorno objetivo, no funcionalidades o despliegues ya implementados.
+Entregar un sitio accesible desde una URL pública. Utilizar Django en Render, PostgreSQL y PostGIS en Supabase, Elasticsearch en Elastic Cloud y GitHub Actions para la ingesta automática. Las búsquedas del sitio desplegado deben funcionar sin depender de una computadora del equipo. Conservar la ejecución local para desarrollo y pruebas. El 9 de octubre de 2026 el equipo confirmó que el primer despliegue en Render muestra las propiedades de Brega guardadas en Supabase mediante `/propiedades/`. PostGIS, Elastic Cloud y el workflow siguen pendientes. Ver [estado y configuración del despliegue](docs/despliegue.md).
 
 #### Elasticsearch en Elastic Cloud
 
@@ -43,7 +43,7 @@ Utilizar la prueba gratuita de 14 días sin tarjeta para la entrega, comprobando
 
 Preparar un workflow que obtenga el código, instale las dependencias y ejecute `python manage.py importar_propiedades brega` en un runner estándar de GitHub. Hoy Brega es la única inmobiliaria implementada. Cada ejecución guardará los datos y la caché persistente en Supabase y terminará; no necesita una computadora del equipo encendida ni un proceso permanente en Render. Después de integrar Elasticsearch, el flujo también deberá actualizar su índice y permitir recuperar fallos de indexación.
 
-Configurar las credenciales mediante Actions Secrets. Definir la frecuencia y evitar ingestas simultáneas, incluidas las ejecuciones locales contra los mismos servicios cuando utilicen Nominatim. El horario programado puede sufrir demoras. Al incorporar otras inmobiliarias, reutilizar el contrato, registro y flujo común existentes; adaptar el workflow para las fuentes disponibles. El comando actual recibe una fuente por ejecución; todavía no existe una opción para importar todas juntas.
+Configurar las credenciales mediante Actions Secrets. Definir la frecuencia y evitar ingestas simultáneas, incluidas las ejecuciones locales contra los mismos servicios cuando utilicen Nominatim. El horario programado puede sufrir demoras. El equipo confirmó que la versión final desplegada tendrá un único comando general de ingesta para todas las fuentes registradas, reutilizando el contrato, registro y flujo común existentes. Su implementación sigue pendiente: el comando actual recibe una fuente por ejecución y requiere `brega`. No configurar el workflow con un comando sin argumentos hasta implementar y verificar esa ampliación.
 
 Los runners estándar son gratuitos en repositorios públicos. En repositorios privados, GitHub Free incluye 2.000 minutos mensuales compartidos entre los workflows y repositorios privados de la cuenta propietaria, no por integrante ni por repositorio. Verificar la visibilidad y cuota disponible antes de configurar la programación: la visibilidad de este repositorio todavía no se comprobó. Ver [facturación de Actions](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
 
@@ -60,6 +60,8 @@ El proveedor, intervalo y ruta siguen pendientes. Se propuso [cron-job.org](http
 Al actualizar este contexto, el código contiene:
 
 - Un proyecto Django en `config/` y la aplicación `propiedades/`. `config/database.py` permite SQLite o PostgreSQL según `DB_ENGINE`; `config/settings.py` carga `.env` sin sobrescribir variables del sistema. `.env.example` documenta los valores; no contiene credenciales reales.
+- Configuración para el despliegue básico: `DJANGO_SECRET_KEY` obligatorio desde el entorno, `DJANGO_DEBUG` con valor predeterminado False y `DJANGO_ALLOWED_HOSTS` como lista separada por comas. El dominio recibido en `RENDER_EXTERNAL_HOSTNAME` se agrega automáticamente; en Render se configura el encabezado del proxy HTTPS y cookies de sesión/CSRF seguras.
+- Gunicorn `26.2.0`, WhiteNoise `6.12.0`, archivos estáticos en `staticfiles/` con almacenamiento comprimido y manifiesto, y `.python-version` con `3.14`. `.env` y `staticfiles/` están excluidos de Git. Comandos de construcción y arranque documentados en [docs/despliegue.md](docs/despliegue.md).
 - El modelo `Propiedad`, con fuente, identificador de origen, dirección, tipo, dormitorios y su estado de verificación, operaciones de venta/alquiler, precios y monedas separados por operación, URL original, fecha de actualización y latitud/longitud opcionales. Las coordenadas son campos FloatField del prototipo, todavía sin representación PostGIS.
 - Ampliación acotada del modelo en la migración `0008`: título, descripción, características como texto, ciudad, provincia, zona, ambientes y baños. Dormitorios ya existía. No se agregan columnas para cada amenidad: cochera, parrilla y otras características se conservan en el texto extraído. Los textos faltantes quedan vacíos y las cantidades desconocidas en NULL; cero es un valor válido.
 - La migración `0009` agrega `ubicacion_aproximada` (NULL: precisión desconocida; True: la fuente publica un área) y `radio_ubicacion_m` opcional. Se conserva la precisión de la fuente: un círculo no representa una dirección exacta ni garantiza que la propiedad esté en su centro.
@@ -81,7 +83,7 @@ Al actualizar este contexto, el código contiene:
 
 La conexión y las migraciones hasta `0010` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
 
-No hay integración PostGIS o Elasticsearch; tampoco scrapers de Avantix u otra tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de precio/tipo/geográficos, API de búsqueda ni mapa. No hay workflow de GitHub Actions ni ruta de ping. La configuración para desplegar Django sigue pendiente: actualmente `DEBUG=True`, `ALLOWED_HOSTS` está vacío, la clave es de desarrollo y no se agregó un servidor de producción ni la configuración de archivos estáticos para el despliegue. Las 48 pruebas automáticas pasaron usando SQLite y servicios simulados. Para ejecutarlas en PowerShell sin usar Supabase:
+No hay integración PostGIS o Elasticsearch; tampoco scrapers de Avantix u otra tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de precio/tipo/geográficos, API de búsqueda ni mapa. No hay workflow de GitHub Actions ni ruta de ping. El despliegue básico ya está comprobado por el equipo: Render sirve `/propiedades/` leyendo Supabase, con `DJANGO_DEBUG=False`. Se verificaron localmente `collectstatic`, `manage.py check` y las migraciones hasta `0010`; `.env` fue comprobado como ignorado por Git. El commit de preparación es `5f61bf9`. Estas comprobaciones no validan las features pendientes. Las 48 pruebas automáticas pasaron previamente usando SQLite y servicios simulados; no se volvieron a ejecutar durante el despliegue básico. Para ejecutarlas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
 
 ```powershell
 $env:DB_ENGINE = "sqlite"
@@ -101,7 +103,7 @@ Actualmente solo se scrapean publicaciones de Brega. Con el entorno virtual acti
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
 ```
 
-El nombre de la fuente es obligatorio; no se debe colocar una URL. Para incorporar otra inmobiliaria, implementar y verificar su adaptador y registrarlo en `propiedades/scraping/fuentes.py`. La forma general ya existe: `python manage.py importar_propiedades <fuente>`, reemplazando `<fuente>` por un nombre registrado, sin los signos `<` y `>`. Actualmente solo admite `brega`; escribir un nombre nuevo no agrega soporte automáticamente. Reutilizar el importador y la persistencia existentes. La ingesta consulta los servicios externos y crea o actualiza publicaciones en la base configurada. La carga conjunta de varias fuentes queda por definir al incorporarlas.
+El nombre de la fuente es obligatorio; no se debe colocar una URL. Para incorporar otra inmobiliaria, implementar y verificar su adaptador y registrarlo en `propiedades/scraping/fuentes.py`. La forma general ya existe: `python manage.py importar_propiedades <fuente>`, reemplazando `<fuente>` por un nombre registrado, sin los signos `<` y `>`. Actualmente solo admite `brega`; escribir un nombre nuevo no agrega soporte automáticamente. Reutilizar el importador y la persistencia existentes. La ingesta consulta los servicios externos y crea o actualiza publicaciones en la base configurada. La versión final tendrá un único comando para importar todas las fuentes; esa ampliación todavía no está implementada.
 
 Para completar opcionalmente ciudad/provincia faltantes desde las coordenadas, usando la caché persistente:
 
@@ -231,13 +233,13 @@ La hipótesis es compartir un adaptador Tokko entre Brega y Avantix, cambiando l
 
 Las prioridades inmediatas son arquitectura de scrapers, modelo común, persistencia, job de ingesta, integración/indexación/búsqueda con Elasticsearch y soporte geográfico con PostGIS. El plan describe trabajo pendiente, no funcionalidades ya terminadas.
 
-### Orden recomendado para el despliegue
+### Avance del despliegue y siguiente paso
 
-Como recomendación técnica para avanzar hacia la entrega, realizar un primer despliegue acotado de Django en Render con Supabase y el listado actual antes de integrar Elasticsearch. Permite verificar configuración, conexión y URL pública mientras se completa el buscador. Este orden es una recomendación, no una nueva secuencia confirmada por el equipo.
+El equipo siguió la recomendación de realizar primero un despliegue básico de Django en Render conectado a Supabase. El 9 de octubre de 2026 confirmó que `/propiedades/` muestra Brega desde el sitio desplegado. El próximo paso recomendado es integrar Elasticsearch con esa infraestructura ya comprobada, avanzando por etapas:
 
-1. Preparar Django para el entorno desplegado: secreto por entorno, `DEBUG=False`, hosts permitidos, servidor de producción, archivos estáticos y comandos de construcción/arranque. Reutilizar la conexión PostgreSQL existente hacia Supabase. Comprobar `/propiedades/` con los datos guardados desde la URL pública. Ver [despliegue de Django en Render](https://render.com/docs/deploy-django), adaptando la guía para mantener Supabase como base.
-2. Crear Elasticsearch en Elastic Cloud e integrar conexión, índice, reconstrucción desde Supabase, búsqueda y ranking. Incorporar la indexación al flujo de ingesta y comprobar la búsqueda desde el despliegue.
-3. Configurar GitHub Actions inicialmente para Brega y ampliar el job conforme se registren otras fuentes. Completar las demás features del plan y verificar sus funciones desde la URL pública.
+1. Crear el servicio Elasticsearch en la prueba de Elastic Cloud, confirmar su vencimiento y probar una conexión desde Django. Guardar las credenciales en variables de entorno locales y de Render, fuera de Git.
+2. Crear un índice con análisis en español y cargar las propiedades ya guardadas en Supabase mediante un comando de reconstrucción. Probar consultas y orden por relevancia antes de incorporar la indexación a la ingesta; PostgreSQL sigue siendo la fuente de verdad.
+3. Integrar la búsqueda y la actualización del índice después de persistir, incluyendo recuperación de fallos. Comprobar las búsquedas desde Render. Después preparar el comando general de ingesta y GitHub Actions, incorporar fuentes y completar PostGIS según el plan.
 
 El primer despliegue comprueba la infraestructura; no completa las features pendientes ni requiere definir una nueva interfaz.
 
@@ -250,9 +252,9 @@ El primer despliegue comprueba la infraestructura; no completa las features pend
 - Configuración de Elasticsearch, coordinación de consultas, orden y paginación.
 - Validación del geocodificador experimental, extracción explícita de ciudad/provincia, auditoría de coordenadas históricas y tratamiento definitivo de ubicaciones ausentes.
 - Tecnología del frontend, mapa y contrato de la API futura.
-- Creación y configuración de Elasticsearch en Elastic Cloud, vigencia de la prueba para la evaluación y continuidad después de su vencimiento; preparación/despliegue de Django en Render, conectado a Supabase y Elastic Cloud.
+- Creación y configuración de Elasticsearch en Elastic Cloud, vigencia de la prueba para la evaluación y continuidad después de su vencimiento; conexión de Django en Render con Elasticsearch. El despliegue básico con Supabase ya funciona.
 
-Requests y Beautiful Soup ya se usan para Brega. Comprobar primero si las consultas directas permiten obtener los datos de cada nueva fuente; no dar por necesaria la automatización de un navegador. No se ha adoptado React, un framework de scraping adicional, colas de tareas ni microservicios. El despliegue del sitio es un requisito de entrega; Render es el alojamiento previsto de Django y no se ha adoptado Vercel.
+Requests y Beautiful Soup ya se usan para Brega. Comprobar primero si las consultas directas permiten obtener los datos de cada nueva fuente; no dar por necesaria la automatización de un navegador. No se ha adoptado React, un framework de scraping adicional, colas de tareas ni microservicios. El despliegue del sitio es un requisito de entrega; Django ya está alojado en Render y no se ha adoptado Vercel.
 
 ## Criterios de trabajo
 
