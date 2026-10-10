@@ -48,6 +48,8 @@ class Propiedad(models.Model):
         
         latitud = models.FloatField(null=True, blank=True)
         longitud = models.FloatField(null=True, blank=True)
+        # En PostgreSQL, 0011 genera la columna espacial `ubicacion` a partir
+        # de estos dos campos. No se escribe desde el ORM; ver geografia.py.
         # None: precisión desconocida; True: la fuente publica un área aproximada.
         ubicacion_aproximada = models.BooleanField(null=True, blank=True)
         radio_ubicacion_m = models.FloatField(null=True, blank=True)

@@ -33,6 +33,10 @@
     </form>
 
     <p>{{ propiedades|length }} resultados</p>
+    {% if filtra_centros_aproximados %}
+        <p>El filtro utiliza los puntos publicados, incluidos centros de áreas aproximadas
+           y ubicaciones de precisión desconocida. No garantiza que cada inmueble esté dentro del área buscada.</p>
+    {% endif %}
 
     {% for propiedad in propiedades %}
         <article>
@@ -40,12 +44,17 @@
 
             <p>
                 {{ propiedad.direccion|default:"Dirección no informada" }}
-                {% if propiedad.latitud and propiedad.longitud %}
+                {% if propiedad.latitud != None and propiedad.longitud != None %}
                     <br><small>🗺️ Coordenadas: {{ propiedad.latitud }}, {{ propiedad.longitud }}</small>
+                    {% if propiedad.ubicacion_aproximada %}
+                        <br><small>Ubicación aproximada{% if propiedad.radio_ubicacion_m != None %}; radio publicado: {{ propiedad.radio_ubicacion_m }} m{% endif %}.</small>
+                    {% elif propiedad.ubicacion_aproximada == None %}
+                        <br><small>Precisión de ubicación desconocida.</small>
+                    {% endif %}
                 {% endif %}
             </p>
 
-            {% if propiedad.dormitorios %}
+            {% if propiedad.dormitorios != None %}
                 <p>Dormitorios: {{ propiedad.dormitorios }}</p>
             {% else %}
                 <p>Dormitorios: no informado</p>
@@ -54,7 +63,7 @@
             {% if operacion == "venta" %}
                 <p>
                     Venta:
-                    {% if propiedad.precio_venta %}
+                    {% if propiedad.precio_venta != None %}
                         {{ propiedad.moneda_venta }}
                         {{ propiedad.precio_venta }}
                     {% else %}
@@ -64,7 +73,7 @@
             {% else %}
                 <p>
                     Alquiler:
-                    {% if propiedad.precio_alquiler %}
+                    {% if propiedad.precio_alquiler != None %}
                         {{ propiedad.moneda_alquiler }}
                         {{ propiedad.precio_alquiler }}
                     {% else %}

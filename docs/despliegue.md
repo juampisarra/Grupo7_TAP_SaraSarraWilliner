@@ -1,6 +1,6 @@
 # Despliegue básico y continuidad
 
-Estado actualizado el 9 de octubre de 2026. El equipo confirmó que el sitio desplegado en Render muestra las propiedades de Brega desde `/propiedades/`, consultando la base PostgreSQL de Supabase. La URL exacta debe copiarse del panel de Render; no se registra aquí un dominio supuesto.
+Estado actualizado el 9 de octubre de 2026. Se comprobó el sitio público en `https://observatorio-grupo7.onrender.com/propiedades/`, consultando PostgreSQL en Supabase. Las correcciones de health, plantilla y seguridad descritas a continuación están implementadas localmente y todavía deben desplegarse. La migración PostGIS `0011` sí se aplicó a Supabase; ver [almacenamiento y filtros](postgis.md).
 
 ## Qué se completó
 
@@ -77,7 +77,25 @@ Copiar el resultado directamente al entorno correspondiente y conservarlo privad
 - Commit y push de la preparación a `main` completados.
 - El equipo abrió el sitio desplegado y confirmó que muestra propiedades de Brega. Esta es la comprobación funcional del despliegue; no se realizó una auditoría de seguridad ni una nueva ejecución de las 48 pruebas históricas.
 
-Abrir la URL asignada por Render con `/propiedades/` al final. El proyecto no tiene una vista para `/`; un 404 en la raíz no demuestra que el despliegue haya fallado. Tampoco existe `/health/`: no configurar esa ruta como health check hasta implementarla.
+Abrir la URL asignada por Render con `/propiedades/` al final. El proyecto no tiene una vista para `/`; un 404 en la raíz no demuestra que el despliegue haya fallado. `/health/` está implementado en el código local y responde `{"status":"ok"}` con HTTP 200, sin base de datos, scraping ni otros servicios. Admite GET y HEAD, no se almacena en caché y solo comprueba que Django responde. El código nuevo debe desplegarse antes de configurar esa ruta en Render o cron-job.org.
+
+## Correcciones listas para desplegar
+
+Con `DJANGO_DEBUG=False`, Django redirige a HTTPS, utiliza cookies seguras y agrega HSTS durante una hora. En Render reconoce HTTPS mediante `X-Forwarded-Proto`, evitando un bucle de redirección. En desarrollo local conservar `DJANGO_DEBUG=True` para poder utilizar HTTP con `runserver`.
+
+`check --deploy` ya no informa el error de correo de consola ni las advertencias de HSTS ausente o redirección. **El proyecto no envía emails en producción**: el backend `config.mail.CorreoDeshabilitado` falla explícitamente si alguien intenta enviar. Esto no configura SMTP ni certifica entrega. Antes de agregar una funcionalidad de correo habrá que integrar un proveedor en `MAILERS`. En desarrollo se conserva la consola.
+
+Persisten dos recomendaciones del check, `security.W005` y `security.W021`: subdominios HSTS y preload están desactivados expresamente. No se amplía la política a otros hosts ni se anuncia preload con una configuración de una hora. No se silencian estas advertencias.
+
+La plantilla distingue cero de NULL para dormitorios, precios y coordenadas. También indica si las coordenadas representan una ubicación aproximada o de precisión desconocida.
+
+Una vez publicado y desplegado este código:
+
+1. Abrir `https://observatorio-grupo7.onrender.com/health/` y comprobar HTTP 200 y `{"status":"ok"}`.
+2. Revisar el listado para alquiler y venta y los filtros descritos en [PostGIS](postgis.md).
+3. Configurar el ping propuesto como GET cada diez minutos a esa URL HTTPS. La cuenta y el job de cron-job.org todavía no se configuraron.
+
+No hace falta una variable nueva en Render ni volver a ejecutar scraping. El build documentado ejecuta `migrate`; en la Supabase actual `0011` ya está aplicada. En una base nueva instalará PostGIS si el usuario tiene los permisos correspondientes.
 
 Render Free puede entrar en reposo tras 15 minutos sin tráfico y la siguiente solicitud puede tardar aproximadamente un minuto en reactivarlo. Ver [límites oficiales](https://render.com/docs/free). Los pings externos siguen sin configurar y no garantizan disponibilidad continua.
 
@@ -91,7 +109,7 @@ El sitio consulta las propiedades ya guardadas en Supabase. Una visita o un camb
 
 Después de esa ingesta, el sitio puede consultar los datos actualizados en la misma base. No hace falta volver a desplegar para ver cambios de datos. `--completar-ubicacion` sigue siendo opcional; consultar [la guía de bases y enriquecimiento](base_de_datos.md). Evitar ejecuciones simultáneas que usen Nominatim.
 
-La versión final tendrá un solo comando general para todas las fuentes registradas, pero hoy `brega` es obligatorio y es la única fuente disponible. GitHub Actions todavía no está configurado. Elasticsearch, PostGIS, otras inmobiliarias, filtros adicionales, API de búsqueda, frontend definitivo y mapa siguen pendientes.
+La versión final tendrá un solo comando general para todas las fuentes registradas, pero hoy `brega` es obligatorio y es la única fuente disponible. GitHub Actions todavía no está configurado. PostGIS y los filtros por radio/rectángulo están implementados; falta desplegar el código que los utiliza. Elasticsearch, otras inmobiliarias, filtros de tipo/precio, API de búsqueda, frontend definitivo y mapa siguen pendientes.
 
 ## Próximo paso: Elasticsearch en Elastic Cloud
 

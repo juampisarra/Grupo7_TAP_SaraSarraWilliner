@@ -1,5 +1,7 @@
 # Grupo7_TAP_SaraSarraWilliner
 
+Actualización del 9 de octubre: `/health/`, la corrección de valores cero y los ajustes de seguridad están listos para desplegar. PostGIS ya está instalado en Supabase con la migración `0011`; los filtros por radio y rectángulo están implementados en el backend local. Ver [estado de despliegue](docs/despliegue.md) y [uso de PostGIS](docs/postgis.md). Elasticsearch, GitHub Actions y el mapa siguen pendientes.
+
 Trabajo práctico de TAP del Grupo 7 (Sara, Sarra y Williner): un Observatorio Inmobiliario orientado inicialmente a propiedades de Rafaela. Centraliza publicaciones de distintas inmobiliarias para buscar, filtrar y comparar opciones desde una única aplicación, conservando la fuente y el enlace al aviso original.
 
 ## Objetivo y prioridades
@@ -24,9 +26,9 @@ La prioridad actual es el backend: scrapers, normalización, persistencia, inges
 | GitHub Actions | Ejecución automática del scraper en un runner de GitHub, con frecuencia y configuración pendientes. |
 | Frontend | Tecnología e implementación pendientes, incluido el mapa. |
 
-PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0010` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
+PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0011` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
 
-La entrega requiere un sitio desplegado. El entorno objetivo es Django en Render, PostgreSQL/PostGIS en Supabase y Elasticsearch en Elastic Cloud. El 9 de octubre de 2026 el equipo confirmó que el despliegue básico muestra las propiedades de Brega guardadas en Supabase desde `/propiedades/`. Elasticsearch y PostGIS todavía no están integrados. El scraper se ejecuta manualmente por comando; GitHub Actions será su ejecución automática, con workflow y frecuencia pendientes. Los comandos locales se conservan para desarrollo y pruebas. Elastic Cloud ofrece una [prueba de 14 días sin tarjeta](https://www.elastic.co/cloud/elasticsearch-service/signup); hay que confirmar que cubra la evaluación y resolver la continuidad después de su vencimiento. Ver [la configuración del despliegue y el próximo paso](docs/despliegue.md).
+La entrega requiere un sitio desplegado. El entorno objetivo es Django en Render, PostgreSQL/PostGIS en Supabase y Elasticsearch en Elastic Cloud. El 9 de octubre de 2026 el equipo confirmó que el despliegue básico muestra las propiedades de Brega guardadas en Supabase desde `/propiedades/`. Elasticsearch sigue pendiente. PostGIS ya está integrado en Supabase y en el código local, pendiente de despliegue. El scraper se ejecuta manualmente por comando; GitHub Actions será su ejecución automática, con workflow y frecuencia pendientes. Los comandos locales se conservan para desarrollo y pruebas. Elastic Cloud ofrece una [prueba de 14 días sin tarjeta](https://www.elastic.co/cloud/elasticsearch-service/signup); hay que confirmar que cubra la evaluación y resolver la continuidad después de su vencimiento. Ver [la configuración del despliegue y el próximo paso](docs/despliegue.md).
 
 Actions ejecutará el comando de ingesta con credenciales en GitHub Secrets y guardará los datos en Supabase; actualizará Elasticsearch después de implementar esa integración. Los runners estándar son gratuitos en repositorios públicos. Para repositorios privados, GitHub Free incluye 2.000 minutos por mes compartidos entre los workflows y repositorios privados de la cuenta propietaria, no por integrante. La visibilidad de este repositorio no está verificada. Ver [condiciones oficiales](https://docs.github.com/en/billing/concepts/product-billing/github-actions). El horario programado puede sufrir demoras.
 
@@ -55,7 +57,7 @@ Las búsquedas consultan la información guardada y no ejecutan scraping. El bac
 
 Los filtros previstos incluyen tipo, venta/alquiler, precio mínimo/máximo con moneda y ubicación. Una propiedad puede tener venta y alquiler con precios distintos. El modelo común también contemplará, según disponibilidad, dirección, ciudad, barrio, dormitorios, ambientes, superficie y unidad, título, descripción, características, imágenes, URL y coordenadas. Los datos faltantes se representarán sin inventarlos.
 
-La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar un área. PostGIS resolverá las consultas espaciales; al implementarlas se definirán la representación espacial, las unidades y funciones apropiadas como `ST_DWithin`, `ST_Within` o `ST_Contains`, y se evaluarán índices GiST. Hay geocodificación experimental; su validación y la extracción de localidad quedan pendientes.
+La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar un área. PostGIS ya resuelve radio con `ST_DWithin` y rectángulos con `ST_Covers`, en WGS84 y con índices GiST. La consulta por polígonos arbitrarios sigue pendiente; ver [límites y precisión](docs/postgis.md). Hay geocodificación experimental; su validación y la extracción de localidad quedan pendientes.
 
 ## Qué existe actualmente
 
@@ -71,7 +73,7 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0010` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. No se integraron PostGIS o Elasticsearch. Tampoco existen el scraper Avantix, la tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de tipo/precio/geografía, API de búsqueda o mapa. Pasaron 48 pruebas de ingesta, extracción, comandos, geocodificación y configuración de bases (`python manage.py test propiedades config` con SQLite). Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
+La conexión y migraciones hasta `0011` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. PostGIS está integrado; Elasticsearch sigue pendiente. Tampoco existen el scraper Avantix, la tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de tipo/precio, API JSON de búsqueda o mapa. Hay filtros PostGIS por radio y rectángulo, pendientes de despliegue. Pasaron 48 pruebas de ingesta, extracción, comandos, geocodificación y configuración de bases (`python manage.py test propiedades config` con SQLite). Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 
@@ -109,7 +111,7 @@ Para iniciar el servidor de desarrollo:
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. El comando general que importará todas las fuentes en la versión final está acordado pero todavía no implementado: hoy el argumento `brega` es obligatorio. La ejecución local es para desarrollo y pruebas; Django ya está desplegado en Render con Supabase, mientras que Elasticsearch y PostGIS siguen pendientes.
+Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. El comando general que importará todas las fuentes en la versión final está acordado pero todavía no implementado: hoy el argumento `brega` es obligatorio. La ejecución local es para desarrollo y pruebas; Django ya está desplegado en Render con Supabase, mientras que Elasticsearch sigue pendiente y el código de filtros PostGIS debe desplegarse.
 
 ## Próximos pasos
 
