@@ -1,0 +1,44 @@
+﻿name: Ingesta Semanal de Propiedades
+
+on:
+  # Se ejecuta automáticamente todos los lunes a la medianoche (00:00 UTC)
+  schedule:
+    - cron: '0 0 * * 1'
+  
+  # Permite ejecutar el workflow manualmente desde la página de GitHub
+  workflow_dispatch:
+
+# Exclusión de ejecuciones simultáneas: si arranca uno nuevo, cancela o espera
+concurrency:
+  group: ingesta_propiedades
+  cancel-in-progress: false
+
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar scraper (todas las fuentes)
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          DJANGO_DEBUG: 'False'
+          DB_ENGINE: ${{ secrets.DB_ENGINE }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGSSLMODE: ${{ secrets.PGSSLMODE }}
+        run: python manage.py importar_propiedades

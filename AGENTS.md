@@ -129,7 +129,7 @@ Actualmente solo se scrapean publicaciones de Brega. Con el entorno virtual acti
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
 ```
 
-El nombre de la fuente es obligatorio; no se debe colocar una URL. Para incorporar otra inmobiliaria, implementar y verificar su adaptador y registrarlo en `propiedades/scraping/fuentes.py`. La forma general ya existe: `python manage.py importar_propiedades <fuente>`, reemplazando `<fuente>` por un nombre registrado, sin los signos `<` y `>`. Actualmente solo admite `brega`; escribir un nombre nuevo no agrega soporte automáticamente. Reutilizar el importador y la persistencia existentes. La ingesta consulta los servicios externos y crea o actualiza publicaciones en la base configurada. La versión final tendrá un único comando para importar todas las fuentes; esa ampliación todavía no está implementada.
+El nombre de la fuente es obligatorio; no se debe colocar una URL. Para incorporar otra inmobiliaria, implementar y verificar su adaptador y registrarlo en `propiedades/scraping/fuentes.py`. La forma general ya existe: `python manage.py importar_propiedades <fuente>`, reemplazando `<fuente>` por un nombre registrado, sin los signos `<` y `>`. Actualmente solo admite `brega`; escribir un nombre nuevo no agrega soporte automáticamente. Reutilizar el importador y la persistencia existentes. La ingesta consulta los servicios externos y crea o actualiza publicaciones en la base configurada. Ya se puede ejecutar el comando sin argumentos para importar todas las fuentes registradas a la vez en un solo proceso.
 
 Para completar opcionalmente ciudad/provincia faltantes desde las coordenadas, usando la caché persistente:
 
@@ -273,7 +273,12 @@ El primer despliegue comprueba la infraestructura; no completa las features pend
 
 - Tercera inmobiliaria y compatibilidad del adaptador compartido con Avantix.
 - Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; política de intersección de áreas de incertidumbre, polígonos arbitrarios y futuras ampliaciones del esquema común; la representación espacial y los filtros básicos ya están implementados. El proyecto Supabase, conexión y migraciones hasta `0010` están verificados.
-- Workflow, frecuencia y configuración del job de ingesta en GitHub Actions, uso de runners estándar en este repositorio público y cuota disponible si se cambia a privado; extensión del job a nuevas fuentes conforme se implementen; política de publicaciones retiradas y recuperación de errores de indexación.
+- [X] Workflow y frecuencia en GitHub Actions: Creado para los lunes a la medianoche. Exclusión de ejecuciones simultáneas implementada con concurrency.
+- [ ] TAREAS PENDIENTES DEL WORKFLOW:
+  1. Cargar los Secrets en GitHub (PGHOST, PGPASSWORD, etc.).
+  2. Hacer una ejecución manual inicial desde la web de GitHub para verificar que funcione.
+  3. Actualización del índice de Elasticsearch (no implementado en el workflow aún).
+- [ ] Política de publicaciones retiradas y recuperación de errores de indexación (Pendiente).
 - Comprobación del historial de cron-job.org y del intervalo guardado; `/health/` ya está desplegada y el job fue creado.
 - Publicación de Elasticsearch en Render, sincronización con la ingesta, ajuste de relevancia y paginación pública. Configuración local, combinación con filtros y orden por score ya implementados.
 - Validación del geocodificador experimental, extracción explícita de ciudad/provincia, auditoría de coordenadas históricas y tratamiento definitivo de ubicaciones ausentes.
