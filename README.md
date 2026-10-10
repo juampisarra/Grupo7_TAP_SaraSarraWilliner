@@ -19,11 +19,18 @@ La prioridad actual es el backend: scrapers, normalización, persistencia, inges
 | Python y Django | Backend y jobs de ingesta; Django ya está presente en el repositorio. |
 | Supabase / PostgreSQL | Base principal y fuente de verdad: propiedades completas y filtros estructurados. |
 | PostGIS | Extensión de PostgreSQL para coordenadas y toda consulta geográfica: radio, distancia, bounding boxes y polígonos. |
-| Elasticsearch | Índice de texto completo y ranking por relevancia; reconstruible desde PostgreSQL. |
-| Render | Opción principal de deployment, considerando jobs y Elasticsearch; configuración y distribución de servicios pendientes. |
+| Elasticsearch / Elastic Cloud | Índice de texto completo y ranking por relevancia alojado en Elastic Cloud; reconstruible desde PostgreSQL. |
+| Render | Alojamiento previsto de Django, conectado a Supabase y Elastic Cloud. |
+| GitHub Actions | Ejecución automática del scraper en un runner de GitHub, con frecuencia y configuración pendientes. |
 | Frontend | Tecnología e implementación pendientes, incluido el mapa. |
 
 PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0010` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
+
+El profesor confirmó que el sitio debe estar desplegado: el entorno objetivo es Django en Render, PostgreSQL/PostGIS en Supabase y Elasticsearch en Elastic Cloud. Esto reemplaza la alternativa de presentar la aplicación exclusivamente desde una computadora. El equipo ejecutará el scraper mediante GitHub Actions para evitar el mínimo mensual de un job de Render; el workflow y su frecuencia siguen pendientes. Los comandos locales se conservan para desarrollo y pruebas; las búsquedas del sitio público deben utilizar los servicios desplegados. La prueba gratuita de 14 días de Elastic Cloud puede servir para la entrega si cubre la fecha de evaluación, pero no es alojamiento gratuito permanente. El despliegue y la integración de PostGIS y Elasticsearch siguen pendientes; una presentación solo local requiere conversar con el profesor si desplegar resulta imposible.
+
+Actions ejecutará el comando de ingesta con credenciales en GitHub Secrets y guardará los datos en Supabase; actualizará Elasticsearch después de implementar esa integración. Los runners estándar son gratuitos en repositorios públicos. Para repositorios privados, GitHub Free incluye 2.000 minutos por mes compartidos entre los workflows y repositorios privados de la cuenta propietaria, no por integrante. La visibilidad de este repositorio no está verificada. Ver [condiciones oficiales](https://docs.github.com/en/billing/concepts/product-billing/github-actions). El horario programado puede sufrir demoras.
+
+También se prevén solicitudes periódicas desde un servicio externo a una ruta ligera de Django para reducir el reposo por inactividad. El proveedor y el intervalo siguen por definir; Vercel es una opción consultada, no adoptada. Esos pings no ejecutarán la ingesta ni garantizan disponibilidad continua. [Render Cron Jobs](https://render.com/docs/cronjobs), con un mínimo mensual de USD 1 por servicio, queda como alternativa al job de GitHub Actions; no es necesario contratarlo para el esquema elegido. [Vercel Hobby](https://vercel.com/docs/cron-jobs/usage-and-pricing) limita cada cron a una ejecución diaria.
 
 ## Flujo previsto
 
@@ -87,7 +94,7 @@ Para iniciar el servidor de desarrollo:
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos guardados; sin ingesta previa estará vacío. Sin configurar `.env`, estos comandos usan SQLite. Para conectar Supabase/PostgreSQL y trasladar publicaciones existentes, seguir [la guía de bases de datos](docs/base_de_datos.md). Elasticsearch, PostGIS y el despliegue en Render siguen pendientes.
+Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos guardados; sin ingesta previa estará vacío. Sin configurar `.env`, estos comandos usan SQLite. Para conectar Supabase/PostgreSQL y trasladar publicaciones existentes, seguir [la guía de bases de datos](docs/base_de_datos.md). Esta ejecución es para desarrollo y pruebas: la entrega requiere el sitio desplegado en Render, con Supabase y Elastic Cloud. La integración de Elasticsearch y PostGIS sigue pendiente.
 
 ## Próximos pasos
 
@@ -96,8 +103,9 @@ Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra
 3. Incorporar una segunda y luego una tercera inmobiliaria reutilizando el flujo común. Avantix es la siguiente fuente propuesta; la tercera sigue pendiente.
 4. Integrar PostGIS y preparar coordenadas, consultas por radio/área e índices espaciales.
 5. Coordinar texto, relevancia y filtros desde el backend; desarrollar frontend y mapa posteriormente.
+6. Preparar Django para producción y desplegarlo en Render, conectado a Supabase y Elastic Cloud; comprobar las funciones desde la URL pública.
 
-La frecuencia de actualización, validación de la geocodificación experimental y extracción de localidad, tratamiento de publicaciones retiradas, coordinación/paginación de búsquedas y configuración concreta del despliegue siguen pendientes. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
+El workflow y frecuencia de GitHub Actions, visibilidad del repositorio y cuota disponible, proveedor e intervalo de los pings, validación de la geocodificación experimental y extracción de localidad, tratamiento de publicaciones retiradas, coordinación/paginación de búsquedas, configuración de Elastic Cloud y despliegue en Render siguen pendientes. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
 
 ## Contexto para colaborar
 
