@@ -1,6 +1,6 @@
 # SQLite y Supabase/PostgreSQL
 
-El backend usa el ORM de Django con una conexión PostgreSQL mediante `psycopg`. No necesita el SDK de Supabase ni una API key. PostGIS se integró mediante la migración `0011`, aplicada en Supabase; consultar [almacenamiento y filtros geográficos](postgis.md). Elasticsearch sigue pendiente.
+El backend usa el ORM de Django con una conexión PostgreSQL mediante `psycopg`. No necesita el SDK de Supabase ni una API key. PostGIS se integró mediante la migración `0011`, aplicada en Supabase; consultar [almacenamiento y filtros geográficos](postgis.md). Elasticsearch está conectado y cargado localmente; ver [índice y búsqueda](elasticsearch.md).
 
 ## Preparación local
 

@@ -8,6 +8,10 @@
     <h1>Propiedades</h1>
 
     <form method="get">
+        {% if texto_busqueda %}<input type="hidden" name="q" value="{{ texto_busqueda }}">{% endif %}
+        {% for campo, valor in filtros_geograficos.items %}
+            <input type="hidden" name="{{ campo }}" value="{{ valor }}">
+        {% endfor %}
         <label for="operacion">Operación:</label>
 
         <select
@@ -33,6 +37,7 @@
     </form>
 
     <p>{{ propiedades|length }} resultados</p>
+    {% if texto_busqueda %}<p>Resultados por relevancia para «{{ texto_busqueda }}».</p>{% endif %}
     {% if filtra_centros_aproximados %}
         <p>El filtro utiliza los puntos publicados, incluidos centros de áreas aproximadas
            y ubicaciones de precisión desconocida. No garantiza que cada inmueble esté dentro del área buscada.</p>

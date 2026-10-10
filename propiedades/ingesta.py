@@ -1,7 +1,7 @@
 ﻿"""Flujo común: consolidación, detalles y persistencia de cualquier adaptador.
 
-No conoce selectores HTML ni fuentes concretas. Elasticsearch todavía no está
-integrado: su indexación futura debe ocurrir después de guardar y ser recuperable.
+No conoce selectores HTML ni fuentes concretas. La indexación automática durante
+la ingesta sigue pendiente; por ahora reconstruir_indice carga lo guardado en la base.
 """
 
 import time

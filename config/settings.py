@@ -98,6 +98,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {"default": configurar_base(BASE_DIR, os.environ)}
 
+# Elasticsearch solo se conecta al ejecutar búsqueda textual o comandos de índice.
+ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "").strip()
+ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
+ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "propiedades").strip()
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators

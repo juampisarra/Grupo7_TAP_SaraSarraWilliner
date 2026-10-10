@@ -25,19 +25,19 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | Supabase / PostgreSQL | Base de datos principal y fuente de verdad: persistencia, información completa de las propiedades y filtros estructurados. |
 | PostGIS | Extensión de PostgreSQL responsable de toda la lógica geográfica: coordenadas, distancia, radio, áreas y consultas e índices espaciales. No es una base de datos independiente. |
 | Elasticsearch / Elastic Cloud | Elasticsearch es el índice especializado exclusivamente en búsqueda de texto completo y ranking por relevancia; se alojará en Elastic Cloud. No reemplaza PostgreSQL ni realiza filtros geográficos. |
-| Render | Django ya está desplegado en un servicio web gratuito y conectado a Supabase. La conexión futura con Elastic Cloud sigue pendiente. |
+| Render | Django ya está desplegado en un servicio web gratuito y conectado a Supabase. Elasticsearch está integrado localmente; falta configurar sus variables y desplegar la integración en Render. |
 | GitHub Actions | Ejecución automática del job de ingesta en un runner estándar de GitHub. Inicialmente ejecutará Brega mediante el comando común; el workflow y su frecuencia siguen pendientes. |
 | Frontend | Tecnología e implementación pendientes, incluida la interfaz de mapa. |
 
-Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron las migraciones hasta `0011` en Supabase. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS está integrado en Supabase y en el backend local; falta desplegar su código. Elasticsearch sigue pendiente. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
+Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron las migraciones hasta `0011` en Supabase. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS está desplegado. Elasticsearch está integrado localmente con un índice cargado; falta desplegarlo y sincronizar automáticamente la ingesta. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
 
 ### Entorno objetivo y despliegue
 
-Entregar un sitio accesible desde una URL pública. Utilizar Django en Render, PostgreSQL y PostGIS en Supabase, Elasticsearch en Elastic Cloud y GitHub Actions para la ingesta automática. Las búsquedas del sitio desplegado deben funcionar sin depender de una computadora del equipo. Conservar la ejecución local para desarrollo y pruebas. El 9 de octubre de 2026 el equipo confirmó que el primer despliegue en Render muestra las propiedades de Brega guardadas en Supabase mediante `/propiedades/`. Elastic Cloud y el workflow siguen pendientes; PostGIS ya está integrado y falta desplegar el código nuevo. Ver [estado y configuración del despliegue](docs/despliegue.md).
+Entregar un sitio accesible desde una URL pública. Utilizar Django en Render, PostgreSQL y PostGIS en Supabase, Elasticsearch en Elastic Cloud y GitHub Actions para la ingesta automática. Las búsquedas del sitio desplegado deben funcionar sin depender de una computadora del equipo. Conservar la ejecución local para desarrollo y pruebas. El 9 de octubre de 2026 el equipo confirmó que el primer despliegue en Render muestra las propiedades de Brega guardadas en Supabase mediante `/propiedades/`. El proyecto Elastic Cloud y el índice ya existen; falta desplegar la búsqueda y automatizar la ingesta. PostGIS ya está desplegado. Ver [estado y configuración del despliegue](docs/despliegue.md).
 
 #### Elasticsearch en Elastic Cloud
 
-Utilizar la prueba gratuita de 14 días sin tarjeta para la entrega, comprobando que su vigencia cubra la evaluación antes de activarla. No asumir alojamiento gratuito permanente; la continuidad después de la prueba sigue por resolver. Mantener las credenciales en variables de entorno y conectar Elasticsearch desde el backend y el job, nunca directamente desde el frontend. La creación del servicio, conexión, índice, indexación y búsquedas siguen pendientes. El índice debe poder reconstruirse desde las propiedades guardadas en Supabase. Ver [prueba de Elastic Cloud](https://www.elastic.co/cloud/elasticsearch-service/signup).
+Utilizar la prueba gratuita de 14 días sin tarjeta para la entrega, comprobando que su vigencia cubra la evaluación antes de activarla. No asumir alojamiento gratuito permanente; la continuidad después de la prueba sigue por resolver. Mantener las credenciales en variables de entorno y conectar Elasticsearch desde el backend y el job, nunca directamente desde el frontend. La creación del servicio, conexión, reconstrucción del índice y búsqueda textual local están implementadas. Faltan despliegue e indexación automática tras la ingesta. El índice debe poder reconstruirse desde las propiedades guardadas en Supabase. Ver [prueba de Elastic Cloud](https://www.elastic.co/cloud/elasticsearch-service/signup).
 
 #### Ingesta automática con GitHub Actions
 
@@ -53,9 +53,25 @@ No hace falta contratar un Render Cron Job para esta arquitectura. Esa alternati
 
 Preparar solicitudes periódicas desde un servicio externo a una ruta ligera de Django para reducir el reposo por inactividad. Render gratuito entra en reposo tras 15 minutos sin tráfico entrante; los pings no eliminan sus límites ni garantizan disponibilidad continua. Una visita, un filtro o un ping no deben disparar scraping ni indexación. La ruta no debe consultar Supabase o Elasticsearch solo para mantener activo el servicio. Ver [Render Free](https://render.com/docs/free).
 
-La ruta `/health/` está implementada localmente; el proveedor e intervalo siguen pendientes de configuración. Se propuso [cron-job.org](https://cron-job.org/en/), con solicitudes gratuitas y un intervalo orientativo de diez minutos; todavía no está confirmado ni configurado. Vercel fue una opción consultada, no adoptada: sus Cron Jobs en Hobby permiten una ejecución diaria por cron y esa modalidad no cubre los pings cada pocos minutos. Ver [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs/usage-and-pricing).
+La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](https://cron-job.org/en/); falta comprobar una ejecución programada HTTP 200 en su historial y el intervalo efectivamente guardado (se propuso GET cada diez minutos). No presentar la creación del job como prueba de ejecución. Vercel fue una opción consultada, no adoptada.
 
 ## Estado real del repositorio
+
+### Elasticsearch y despliegue — 10 de octubre de 2026
+
+El equipo pidió dejar esta etapa documentada para que el compañero propietario de la cuenta de Render publique el código y configure sus variables. No desplegar ni hacer push en su nombre: el usuario hará el push. Seguir la [guía de continuidad](docs/continuidad.md), que distingue `.env` local de Environment en Render y lista las pruebas públicas pendientes.
+
+El equipo confirmó el despliegue de health, plantilla y PostGIS. Se verificaron públicamente `/health/` (200), filtros espaciales (200 y 400 ante entrada inválida) y avisos de precisión. El equipo creó un job de ping en cron-job.org; falta comprobar su historial de ejecución, no asumir que ya funciona regularmente.
+
+Elasticsearch está integrado localmente con el cliente oficial Python 9.5.1 y un proyecto Elastic Cloud que responde como 9.6.0. Las credenciales están en `.env`, sin versionar. El equipo indicó evaluación el martes 13 de octubre; la prueba de 14 días cubre esa fecha, pero falta registrar su vencimiento exacto en el panel.
+
+`comprobar_elasticsearch` valida conexión; `reconstruir_indice` crea una versión completa desde la base configurada y cambia atómicamente el alias `propiedades`, conservando versiones anteriores y rechazando por defecto una base vacía. Se cargaron 173 documentos desde Supabase sin scraping ni cambios de publicaciones. `buscar_propiedades` prueba consultas con score. El analizador es `spanish`, ranking BM25, texto agregado y pesos iniciales por campo. No se indexan precios ni coordenadas para filtrar.
+
+`/propiedades/?q=...` busca texto y combina IDs ordenados con los filtros PostgreSQL/PostGIS, conservando relevancia. Sin texto no consulta Elasticsearch; ante fallos de búsqueda responde 503, sin reemplazar por LIKE. Se usa PIT/search_after para leer todas las coincidencias. No hay formulario nuevo, mapa ni paginación pública. Los cambios de operación conservan los parámetros de búsqueda. Pruebas reales: 16 coincidencias para `departamento con cochera` (5 alquiler/11 venta), 2 para `cochera y quincho` y ranking verificado con un índice temporal luego eliminado.
+
+Esta integración Elasticsearch todavía debe configurarse y desplegarse en Render. La indexación automática tras cada guardado no se implementó en esta etapa: después de una ingesta se debe reconstruir manualmente. Recuperación incremental, concurrencia de reconstrucción/ingesta y política de avisos retirados siguen pendientes. Ver [configuración, comandos, límites y validación](docs/elasticsearch.md). El resto de las revisiones fechadas conserva el estado histórico de cada etapa.
+
+Validación final: 72 pruebas descubiertas, 71 aprobadas y una PostGIS omitida en SQLite; sin cambios de modelo pendientes ni dependencias incompatibles. Dos reconstrucciones reales dejaron 173 documentos, un único índice activo por alias y dos versiones físicas conservadas; los IDs coinciden exactamente con Supabase. No se modificaron publicaciones ni se ejecutó ingesta. `.env` sigue ignorado por Git. No se publicó ni desplegó el código de esta etapa.
 
 ### Revisión y correcciones del 9 de octubre de 2026
 
@@ -65,7 +81,7 @@ Después, por solicitud del equipo, se implementó `/health/` con GET/HEAD, sin 
 
 Se aplicó `0011_ubicacion_postgis` a Supabase: PostGIS 3.3.7 en `extensions`, columna generada `ubicacion geography(Point,4326)` y dos índices GiST (distancia y área). PostgreSQL deriva el punto de longitud/latitud en cada escritura, sin añadir un campo GeoDjango ni requerir GEOS/GDAL. SQLite omite los objetos espaciales y rechaza filtros geográficos con 503. El backend incorpora filtros GET por radio en metros y rectángulo con bordes incluidos, exclusivamente mediante PostGIS. Por defecto solo usa ubicaciones explícitamente exactas; `incluir_aproximadas=1` incluye centros aproximados y precisión desconocida con advertencia. No se interpreta el círculo como ubicación exacta ni se implementó intersección de áreas de incertidumbre. No hay polígonos arbitrarios todavía. Ver [contrato y límites](docs/postgis.md).
 
-Suite de 55 pruebas en SQLite: 54 aprobadas y una integración PostGIS omitida. Se comprobaron radio, metros, bordes, precisión, nulos, actualizaciones y respuestas HTTP contra PostGIS real en una tabla temporal revertida, conservando las 173 publicaciones. No se ejecutó scraping. Los cambios del código todavía no están publicados ni desplegados: `/health/` seguirá en 404 en Render hasta desplegar. El job de cron-job.org sigue sin configurar.
+Suite de esa etapa: 55 pruebas en SQLite, 54 aprobadas y una integración PostGIS omitida. Se comprobaron radio, metros, bordes, precisión, nulos, actualizaciones y respuestas HTTP contra PostGIS real en una tabla temporal revertida, conservando las 173 publicaciones. No se ejecutó scraping. Esta descripción registra la preparación del 9 de octubre: el despliegue de esas correcciones se comprobó el 10 y el job de cron-job.org ya fue creado, con historial pendiente de validar. La suite posterior de Elasticsearch descubrió 72 pruebas, 71 aprobadas y una omitida en SQLite.
 
 Al actualizar este contexto, el código contiene:
 
@@ -93,7 +109,7 @@ Al actualizar este contexto, el código contiene:
 
 La conexión y las migraciones hasta `0010` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
 
-PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. No hay integración Elasticsearch; tampoco scrapers de Avantix u otra tercera fuente, un adaptador común por plataforma, búsqueda textual, filtros de precio/tipo, API JSON de búsqueda ni mapa. No hay workflow de GitHub Actions. `/health/` está implementado localmente y pendiente de despliegue; el ping externo no está configurado. El despliegue básico ya está comprobado por el equipo: Render sirve `/propiedades/` leyendo Supabase, con `DJANGO_DEBUG=False`. Se verificaron localmente `collectstatic`, `manage.py check` y las migraciones hasta `0010`; `.env` fue comprobado como ignorado por Git. El commit de preparación es `5f61bf9`. Estas comprobaciones no validan las features pendientes. Las 48 pruebas automáticas pasaron previamente usando SQLite y servicios simulados; no se volvieron a ejecutar durante el despliegue básico. Para ejecutarlas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
+PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. La integración textual Elasticsearch está implementada localmente. No hay scrapers de Avantix u otra tercera fuente, adaptador común por plataforma, filtros de precio/tipo, API JSON de búsqueda ni mapa. No hay workflow de GitHub Actions. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. El despliegue básico ya está comprobado por el equipo: Render sirve `/propiedades/` leyendo Supabase, con `DJANGO_DEBUG=False`. Se verificaron localmente `collectstatic`, `manage.py check` y las migraciones hasta `0010`; `.env` fue comprobado como ignorado por Git. El commit de preparación es `5f61bf9`. Estas comprobaciones no validan las features pendientes. Las 48 pruebas automáticas pasaron previamente usando SQLite y servicios simulados; no se volvieron a ejecutar durante el despliegue básico. Para ejecutarlas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
 
 ```powershell
 $env:DB_ENGINE = "sqlite"
@@ -158,7 +174,7 @@ Preparar desde el comienzo una estructura común para aproximadamente tres inmob
 
 Implementación común actual: cada adaptador expone `nombre`, `operaciones`, `extraer(operacion)` y `extraer_detalles(url)`. `extraer` devuelve objetos `PublicacionNormalizada`, uno por aviso y operación, con precio/moneda de ese listado. `extraer_detalles` devuelve `DetallesPropiedad` con datos opcionales de la ficha; los errores de lectura deben propagarse. El núcleo consolida por identificador dentro de cada fuente y mantiene precios separados. Para incorporar una fuente, implementar ese contrato y registrarla, sin copiar el importador. No se creó un adaptador Tokko compartido ni se verificó Avantix.
 
-Ciudad/provincia y zona se persisten cuando se aportan, sin inferirlas por el foco del proyecto. La indexación no está implementada: la persistencia está concentrada en `guardar_publicacion`; la integración futura deberá indexar después de guardar y resolver recuperación/reconstrucción. La política de publicaciones retiradas sigue pendiente.
+Ciudad/provincia y zona se persisten cuando se aportan, sin inferirlas por el foco del proyecto. La reconstrucción completa del índice desde PostgreSQL está implementada; la persistencia sigue concentrada en `guardar_publicacion`. La indexación automática después de guardar y su recuperación incremental siguen pendientes. La política de publicaciones retiradas sigue pendiente.
 
 Los datos a contemplar, según lo que realmente proporcione cada fuente, incluyen:
 
@@ -238,18 +254,18 @@ La hipótesis es compartir un adaptador Tokko entre Brega y Avantix, cambiando l
 2. Completar la primera inmobiliaria de punta a punta: extracción, modelo normalizado, persistencia en Supabase/PostgreSQL e indexación en Elasticsearch.
 3. Verificar altas, actualizaciones, ausencia de duplicados por fuente y reconstrucción del índice desde PostgreSQL; probar búsqueda textual y ranking.
 4. Incorporar la segunda inmobiliaria y después la tercera, reutilizando el flujo común y verificando los datos de cada fuente.
-5. PostGIS básico implementado: almacenamiento generado, radio y rectángulo con índices GiST. Falta desplegar su código y ampliar a polígonos y áreas de incertidumbre.
+5. PostGIS básico implementado y desplegado: almacenamiento generado, radio y rectángulo con índices GiST. Falta ampliar a polígonos y definir el tratamiento de áreas de incertidumbre.
 6. Preparar la búsqueda del backend que combine texto, filtros estructurados y filtros geográficos. Desarrollar frontend y mapa posteriormente.
 
 Las prioridades inmediatas son arquitectura de scrapers, modelo común, persistencia, job de ingesta, integración/indexación/búsqueda con Elasticsearch y soporte geográfico con PostGIS. El plan conserva las etapas originales; el soporte PostGIS básico ya se implementó por solicitud posterior del equipo. Las demás features indicadas como pendientes no están terminadas.
 
 ### Avance del despliegue y siguiente paso
 
-El equipo siguió la recomendación de realizar primero un despliegue básico de Django en Render conectado a Supabase. El 9 de octubre de 2026 confirmó que `/propiedades/` muestra Brega desde el sitio desplegado. El próximo paso recomendado es integrar Elasticsearch con esa infraestructura ya comprobada, avanzando por etapas:
+El despliegue básico, health y PostGIS ya están comprobados. Elasticsearch está implementado y probado localmente contra Elastic Cloud, con 173 documentos y reconstrucción por alias. El siguiente paso queda a cargo del compañero propietario de Render:
 
-1. Crear el servicio Elasticsearch en la prueba de Elastic Cloud, confirmar su vencimiento y probar una conexión desde Django. Guardar las credenciales en variables de entorno locales y de Render, fuera de Git.
-2. Crear un índice con análisis en español y cargar las propiedades ya guardadas en Supabase mediante un comando de reconstrucción. Probar consultas y orden por relevancia antes de incorporar la indexación a la ingesta; PostgreSQL sigue siendo la fuente de verdad.
-3. Integrar la búsqueda y la actualización del índice después de persistir, incluyendo recuperación de fallos. Comprobar las búsquedas desde Render. Después preparar el comando general de ingesta y GitHub Actions, incorporar fuentes y completar PostGIS según el plan.
+1. Después del push del usuario, configurar `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` encoded y `ELASTICSEARCH_INDEX=propiedades` en Render y publicar el último código. No hace falta reconstruir el índice para desplegarlo; ya está cargado. Seguir [continuidad](docs/continuidad.md).
+2. Comprobar búsquedas públicas, historial del ping y vencimiento exacto de la prueba. No asumir que un HTTP 200 de la versión anterior valida `q`: comprobar también la indicación de relevancia.
+3. Integrar actualización del índice después de persistir, incluyendo recuperación de fallos. Mientras tanto, ejecutar `reconstruir_indice` después de cada ingesta manual, sin escritores concurrentes. Después preparar el comando general de ingesta y GitHub Actions, incorporar fuentes y completar las búsquedas según el plan.
 
 El primer despliegue comprueba la infraestructura; no completa las features pendientes ni requiere definir una nueva interfaz.
 
@@ -258,11 +274,11 @@ El primer despliegue comprueba la infraestructura; no completa las features pend
 - Tercera inmobiliaria y compatibilidad del adaptador compartido con Avantix.
 - Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; política de intersección de áreas de incertidumbre, polígonos arbitrarios y futuras ampliaciones del esquema común; la representación espacial y los filtros básicos ya están implementados. El proyecto Supabase, conexión y migraciones hasta `0010` están verificados.
 - Workflow, frecuencia y configuración del job de ingesta en GitHub Actions, uso de runners estándar en este repositorio público y cuota disponible si se cambia a privado; extensión del job a nuevas fuentes conforme se implementen; política de publicaciones retiradas y recuperación de errores de indexación.
-- Proveedor e intervalo para las solicitudes periódicas a `/health/`, implementada localmente y pendiente de despliegue; cron-job.org y diez minutos son propuestas, no decisiones confirmadas.
-- Configuración de Elasticsearch, coordinación de consultas, orden y paginación.
+- Comprobación del historial de cron-job.org y del intervalo guardado; `/health/` ya está desplegada y el job fue creado.
+- Publicación de Elasticsearch en Render, sincronización con la ingesta, ajuste de relevancia y paginación pública. Configuración local, combinación con filtros y orden por score ya implementados.
 - Validación del geocodificador experimental, extracción explícita de ciudad/provincia, auditoría de coordenadas históricas y tratamiento definitivo de ubicaciones ausentes.
 - Tecnología del frontend, mapa y contrato de la API futura.
-- Creación y configuración de Elasticsearch en Elastic Cloud, vigencia de la prueba para la evaluación y continuidad después de su vencimiento; conexión de Django en Render con Elasticsearch. El despliegue básico con Supabase ya funciona.
+- Registro del vencimiento exacto de la prueba de Elastic Cloud y continuidad posterior; configuración y comprobación de Django en Render con Elasticsearch. El servicio Elastic y su índice ya existen; el despliegue básico con Supabase ya funciona.
 
 Requests y Beautiful Soup ya se usan para Brega. Comprobar primero si las consultas directas permiten obtener los datos de cada nueva fuente; no dar por necesaria la automatización de un navegador. No se ha adoptado React, un framework de scraping adicional, colas de tareas ni microservicios. El despliegue del sitio es un requisito de entrega; Django ya está alojado en Render y no se ha adoptado Vercel.
 

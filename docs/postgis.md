@@ -1,6 +1,6 @@
 # PostGIS y filtros geográficos
 
-Implementación del 9 de octubre de 2026. La migración `0011_ubicacion_postgis` ya se aplicó a Supabase: PostGIS 3.3.7 en el esquema `extensions`, 173 publicaciones conservadas y 172 puntos espaciales generados. El código nuevo todavía debe desplegarse en Render.
+Implementación del 9 de octubre de 2026. La migración `0011_ubicacion_postgis` ya se aplicó a Supabase: PostGIS 3.3.7 en el esquema `extensions`, 173 publicaciones conservadas y 172 puntos espaciales generados. El código PostGIS y health ya se comprobó desplegado el 10 de octubre.
 
 ## Almacenamiento y sincronización
 
@@ -32,7 +32,7 @@ Rectángulo:
 /propiedades/?operacion=venta&oeste=-61.55&sur=-31.30&este=-61.40&norte=-31.20&incluir_aproximadas=1
 ```
 
-Las coordenadas son ejemplos de consulta, no ubicaciones asignadas a avisos. Usar el servidor local para probar hasta que estos cambios estén desplegados.
+Las coordenadas son ejemplos de consulta, no ubicaciones asignadas a avisos. Los filtros ya se verificaron también en Render.
 
 - Radio: los tres parámetros son obligatorios; `radio_m` acepta desde cero hasta 20.000.000 metros. `ST_DWithin` incluye el límite del radio.
 - Área: los cuatro límites son obligatorios; se requiere `oeste < este` y `sur < norte`. `ST_Covers` incluye los puntos en el borde. No admite rectángulos que crucen el antimeridiano ni polígonos arbitrarios todavía.
