@@ -1,6 +1,6 @@
 # SQLite y Supabase/PostgreSQL
 
-El backend usa el ORM de Django con una conexión PostgreSQL mediante `psycopg`. No necesita el SDK de Supabase ni una API key. PostGIS se integró mediante la migración `0011`, aplicada en Supabase; consultar [almacenamiento y filtros geográficos](postgis.md). Elasticsearch está conectado y cargado localmente; ver [índice y búsqueda](elasticsearch.md).
+El backend usa el ORM de Django con una conexión PostgreSQL mediante `psycopg`. No necesita el SDK de Supabase ni una API key. PostGIS se integró mediante la migración `0011`, aplicada en Supabase; consultar [almacenamiento y filtros geográficos](postgis.md). Elasticsearch está conectado tanto localmente como en Render, y GitHub Actions reconstruye su índice después de la ingesta; ver [índice y búsqueda](elasticsearch.md).
 
 ## Preparación local
 
@@ -94,8 +94,10 @@ Comparar el total con el origen y revisar ejemplos desde Django Admin o el lista
 Si no se quieren trasladar datos, omitir la importación y ejecutar directamente:
 
 ```powershell
-.\.venv\Scripts\python.exe manage.py importar_propiedades brega
+.\.venv\Scripts\python.exe manage.py importar_propiedades
 ```
+
+El comando sin argumentos importa todas las fuentes registradas. Para aislar una sola, usar `importar_propiedades brega` o `importar_propiedades avantix`.
 
 ## Pruebas
 
@@ -105,7 +107,7 @@ Para las pruebas locales, usar `DB_ENGINE=sqlite` y ejecutar:
 .\.venv\Scripts\python.exe manage.py test propiedades config
 ```
 
-Las pruebas cubren el modelo, ingesta, extracción y configuración PostgreSQL con el driver instalado; no reemplazan una prueba de conexión y migración contra un proyecto real de Supabase. En este entorno ya se verificaron conexión y migraciones hasta `0010`, y se comprobaron 173 publicaciones en la ingesta previa. No hubo un traslado automático desde SQLite.
+Las pruebas cubren el modelo, ingesta, extracción y configuración PostgreSQL con el driver instalado; no reemplazan una prueba de conexión y migración contra un proyecto real de Supabase. En este entorno ya se verificaron conexión y migraciones hasta `0011`, y se comprobaron 173 publicaciones en la ingesta previa. No hubo un traslado automático desde SQLite.
 
 ## Coordenadas del mapa de Brega
 
@@ -120,6 +122,12 @@ Después de actualizar el código, aplicar las migraciones y repetir la ingesta 
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
 ```
 
+## Ubicación publicada por Avantix
+
+Las fichas verificadas de Avantix muestran un marcador mediante Google Maps y no declaran un radio. Por decisión confirmada del equipo, la integración trata ese marcador como exacto: lee únicamente el parámetro `q=latitud,longitud` del iframe dentro de `#ficha_mapa`, valida ambos valores y guarda `ubicacion_aproximada=False` con `radio_ubicacion_m=NULL`. La fuente no garantiza expresamente esa precisión; es una clasificación elegida para el proyecto.
+
+La ingesta local efímera del 11 de octubre procesó 275 publicaciones Avantix antes de habilitar este lector y, por eso, no guardó coordenadas. Una comprobación posterior sobre una ficha pública real obtuvo `-31.250540799413834, -61.49395149727678`, `ubicacion_aproximada=False` y radio nulo. La validación no modificó Supabase; la primera carga productiva y su revisión pública siguen pendientes.
+
 ## Completar ciudad/provincia opcionalmente
 
 La migración `0010` incorpora procedencia de los nombres y caché persistente de consultas inversas. Para activar el enriquecimiento:
@@ -133,7 +141,7 @@ El comando habitual sin la opción conserva el scraping de siempre, sin nuevas c
 
 - Solo se completan ciudad/provincia faltantes. Lo explícito de la inmobiliaria tiene prioridad.
 - `ciudad_origen` y `provincia_origen` registran `fuente` o `nominatim_inversa` por separado. Un origen vacío en datos antiguos significa que no se registró su procedencia.
-- Latitud, longitud, zona y precisión permanecen como las aporta la fuente. No se reemplaza el punto por las coordenadas devueltas por Nominatim.
+- Nominatim no modifica latitud, longitud, zona ni la clasificación de precisión documentada para cada fuente. No se reemplaza el punto publicado por las coordenadas devueltas por el proveedor.
 - `propiedades_consultalocalidad` guarda los nombres, estado y fecha de consulta por par de coordenadas. Reutiliza respuestas válidas, vacías y ambiguas; un error temporal se reintenta después de 24 horas. Las respuestas no fallidas no se refrescan automáticamente mientras el punto no cambie.
 - Al cambiar coordenadas, se descartan únicamente nombres obtenidos por geocodificación inversa del punto anterior. Esto ocurre incluso sin activar la opción; el nuevo punto puede consultar o reutilizar su propia caché cuando se active.
 - Si no hay coordenadas, falla el servicio, aparecen categorías contradictorias o el resultado contradice un lugar conocido, no se completan los campos y continúa la ingesta. No se interpreta barrio/departamento como ciudad. Puede completarse solo provincia si no se identifica localidad.

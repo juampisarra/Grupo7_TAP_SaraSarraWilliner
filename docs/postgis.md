@@ -41,7 +41,7 @@ Las coordenadas son ejemplos de consulta, no ubicaciones asignadas a avisos. Los
 
 ## Ubicaciones aproximadas
 
-Por defecto, los filtros espaciales solo incluyen registros con `ubicacion_aproximada=False`. True representa un área aproximada; NULL indica precisión desconocida. Actualmente Brega aporta 172 áreas aproximadas y no hay ubicaciones explícitamente exactas, por lo que un filtro espacial sin `incluir_aproximadas=1` puede devolver cero resultados aunque el listado normal tenga avisos.
+Por defecto, los filtros espaciales solo incluyen registros con `ubicacion_aproximada=False`. True representa un área aproximada; NULL indica precisión desconocida. En la instantánea actualmente desplegada Brega aporta 172 áreas aproximadas y todavía no hay datos de Avantix, por lo que un filtro espacial sin `incluir_aproximadas=1` puede devolver cero resultados. Al publicar e ingerir Avantix, sus marcadores validados se guardarán como `False` y entrarán en el filtro predeterminado. Esa precisión es una decisión del equipo: Avantix publica el punto, pero no lo declara expresamente exacto.
 
 `incluir_aproximadas=1` habilita también puntos aproximados y de precisión desconocida. **Se filtra el centro publicado, no la extensión del círculo ni la ubicación real garantizada del inmueble.** Un centro dentro puede corresponder a una propiedad fuera, y viceversa. El listado muestra esta advertencia y la precisión disponible. El radio publicado se conserva, pero no se interpreta como distancia al punto buscado. La política futura para intersección o cobertura de áreas de incertidumbre sigue pendiente.
 

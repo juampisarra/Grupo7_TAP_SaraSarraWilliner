@@ -1,6 +1,6 @@
 # Grupo7_TAP_SaraSarraWilliner
 
-Actualización del 10 de octubre: `/health/`, plantilla y PostGIS ya están desplegados. Elasticsearch está integrado localmente: conexión comprobada, 173 documentos cargados desde Supabase, reconstrucción por alias y búsquedas BM25 en español mediante `q`. Falta configurar sus variables en Render y desplegar esta integración. La actualización automática del índice tras la ingesta, GitHub Actions y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
+Actualización del 11 de octubre: `/health/`, PostGIS, Elasticsearch y el formulario textual mínimo están desplegados. GitHub Actions ejecuta semanalmente la ingesta general y la reconstrucción completa del índice; su ejecución manual ya fue verificada. Avantix está integrada y validada localmente como segunda fuente, incluido su punto de Google Maps tratado como exacto por decisión del equipo, pero todavía falta publicarla e ingerirla en Supabase. El frontend definitivo y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
 
 **Para el compañero que administra Render:** seguir la [guía de continuidad](docs/continuidad.md), con las variables que debe agregar, pasos de publicación, URLs de prueba y pendientes. El usuario hará el push; `.env` no se sube ni actualiza Render automáticamente.
 
@@ -24,15 +24,15 @@ La prioridad actual es el backend: scrapers, normalización, persistencia, inges
 | Supabase / PostgreSQL | Base principal y fuente de verdad: propiedades completas y filtros estructurados. |
 | PostGIS | Extensión de PostgreSQL para coordenadas y toda consulta geográfica: radio, distancia, bounding boxes y polígonos. |
 | Elasticsearch / Elastic Cloud | Índice de texto completo y ranking por relevancia alojado en Elastic Cloud; reconstruible desde PostgreSQL. |
-| Render | Django ya desplegado en el plan Free y conectado a Supabase; conexión con Elastic Cloud pendiente. |
-| GitHub Actions | Ejecución automática del scraper en un runner de GitHub, con frecuencia y configuración pendientes. |
+| Render | Django desplegado en el plan Free y conectado a Supabase y Elastic Cloud. |
+| GitHub Actions | Ingesta y reconstrucción del índice los lunes a las 00:00 de Argentina, con ejecución manual disponible. |
 | Frontend | Tecnología e implementación pendientes, incluido el mapa. |
 
 PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0011` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
 
-La entrega requiere un sitio desplegado. El entorno objetivo es Django en Render, PostgreSQL/PostGIS en Supabase y Elasticsearch en Elastic Cloud. El 9 de octubre de 2026 el equipo confirmó que el despliegue básico muestra las propiedades de Brega guardadas en Supabase desde `/propiedades/`. PostGIS ya está desplegado. Elasticsearch está integrado localmente y pendiente de despliegue y sincronización automática. El scraper se ejecuta manualmente por comando; GitHub Actions será su ejecución automática, con workflow y frecuencia pendientes. Los comandos locales se conservan para desarrollo y pruebas. Elastic Cloud ofrece una [prueba de 14 días sin tarjeta](https://www.elastic.co/cloud/elasticsearch-service/signup); hay que confirmar que cubra la evaluación y resolver la continuidad después de su vencimiento. Ver [la configuración del despliegue y el próximo paso](docs/despliegue.md).
+La entrega requiere un sitio desplegado. El entorno actual es Django en Render, PostgreSQL/PostGIS en Supabase y Elasticsearch en Elastic Cloud. El equipo confirmó el listado público, la búsqueda por relevancia y los filtros geográficos. GitHub Actions ejecuta el comando general y reconstruye Elasticsearch después de la ingesta; los comandos locales se conservan para desarrollo y recuperación. Elastic Cloud usa una prueba de 14 días y todavía hay que registrar su vencimiento exacto y resolver la continuidad posterior. Ver [la configuración del despliegue y el próximo paso](docs/despliegue.md).
 
-Actions ejecutará el comando de ingesta con credenciales en GitHub Secrets y guardará los datos en Supabase; actualizará Elasticsearch después de implementar esa integración. Los runners estándar son gratuitos en repositorios públicos. Para repositorios privados, GitHub Free incluye 2.000 minutos por mes compartidos entre los workflows y repositorios privados de la cuenta propietaria, no por integrante. Este repositorio se comprobó público el 9 de octubre; revisar su visibilidad al configurar el workflow. Ver [condiciones oficiales](https://docs.github.com/en/billing/concepts/product-billing/github-actions). El horario programado puede sufrir demoras.
+Actions ejecuta el comando de ingesta con credenciales en GitHub Secrets, guarda los datos en Supabase y reconstruye Elasticsearch. Los runners estándar son gratuitos en repositorios públicos. Para repositorios privados, GitHub Free incluye 2.000 minutos por mes compartidos entre los workflows y repositorios privados de la cuenta propietaria, no por integrante. Este repositorio se comprobó público el 9 de octubre. Ver [condiciones oficiales](https://docs.github.com/en/billing/concepts/product-billing/github-actions). El horario programado puede sufrir demoras.
 
 El equipo creó un job en cron-job.org para consultar `/health/` y reducir el reposo por inactividad. Falta comprobar una ejecución programada exitosa en su historial y el intervalo guardado; se propuso GET cada diez minutos. Los pings no ejecutan ingesta ni indexación y no garantizan disponibilidad continua. No hace falta contratar un Render Cron Job para esta arquitectura. Ver [comprobación del ping](docs/continuidad.md#5-comprobar-el-ping).
 
@@ -53,7 +53,7 @@ Frontend futuro + mapa → Backend Python
                         → Resultados al frontend
 ```
 
-El flujo objetivo guarda primero en PostgreSQL y después indexa en Elasticsearch. Actualmente la ingesta crea o actualiza publicaciones sin duplicarlas por fuente e identificador, pero no indexa automáticamente. Ejecutar por separado `python manage.py reconstruir_indice` después de cada ingesta, sin escritores concurrentes. La reconstrucción desde PostgreSQL ya funciona; la sincronización automática y recuperación de fallos del job siguen pendientes.
+El flujo guarda primero en PostgreSQL y después reconstruye Elasticsearch. La ingesta crea o actualiza publicaciones sin duplicarlas por fuente e identificador; el workflow ejecuta `reconstruir_indice` al finalizar. En una ejecución manual ambos comandos siguen siendo pasos separados. La recuperación incremental y el aislamiento ante el fallo completo de una fuente siguen pendientes.
 
 Las búsquedas consultan la información guardada y no ejecutan scraping. El backend coordina Elasticsearch para texto/relevancia, PostgreSQL para filtros estructurados y PostGIS para ubicación; el frontend no accede directamente a esos servicios.
 
@@ -67,15 +67,16 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Despliegue básico de Django en Render Free: Gunicorn, WhiteNoise, clave secreta por entorno, `DEBUG=False`, dominio permitido automáticamente y configuración HTTPS del proxy. Preparación en el commit `5f61bf9`; listado público comprobado por el equipo.
 - Modelo `Propiedad` con procedencia, dirección, tipo, dormitorios, venta/alquiler, precios y monedas por operación, URL original y fecha de actualización; unicidad por `(fuente, identificador_fuente)`.
 - Título, descripción, características como texto, ciudad/provincia/zona, ambientes y baños opcionales, agregados en la migración `0008`. Las amenidades no necesitan una columna individual.
-- Scraper Brega con Requests y Beautiful Soup, paginación y normalización básica.
-- Flujo común en `propiedades/ingesta.py`, contrato `PublicacionNormalizada` y adaptador Brega registrado. El comando `importar_propiedades brega` crea o actualiza publicaciones; `importar_brega` es un alias compatible.
+- Scrapers Brega y Avantix con Requests y Beautiful Soup, paginación y normalización común Tokko.
+- Flujo común en `propiedades/ingesta.py`, contrato `PublicacionNormalizada` y ambos adaptadores registrados. `importar_propiedades` procesa todas las fuentes; también acepta `brega` o `avantix`. `importar_brega` es un alias compatible.
 - Brega consulta la ficha completa en cada ingesta y obtiene texto, características y cantidades. Los errores de ficha conservan los detalles guardados. El rótulo ambiguo `Ubicación` se guarda como zona, sin asumir ciudad.
 - Brega extrae coordenadas de los círculos publicados en el mapa de la ficha y conserva `ubicacion_aproximada` y `radio_ubicacion_m` (migración `0009`). No requiere ciudad para guardar coordenadas de la fuente. Esas posiciones representan áreas aproximadas, no direcciones exactas.
+- Avantix extrae el punto del iframe de Google Maps, lo valida y lo conserva con `ubicacion_aproximada=False` y radio nulo. Esta clasificación como exacta es una decisión del equipo; la fuente no declara expresamente su precisión.
 - La geocodificación experimental con geopy/Nominatim se usa cuando faltan coordenadas de fuente y hay ciudad explícita; no asume Rafaela. Los cambios de ubicación invalidan coordenadas anteriores salvo que la fuente aporte un par nuevo.
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
-- Listado `/propiedades/` con filtro de venta/alquiler y enlace al aviso original; muestra alquileres por defecto.
+- Listado `/propiedades/` con filtro de venta/alquiler, búsqueda textual mínima por relevancia y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0011` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. PostGIS está desplegado; Elasticsearch está integrado localmente con reconstrucción y búsqueda, pendiente de despliegue. Tampoco existen el scraper Avantix, la tercera fuente, un adaptador común por plataforma, filtros de tipo/precio, API JSON de búsqueda o mapa. Hay filtros PostGIS por radio y rectángulo ya desplegados; búsqueda textual local mediante `q`. La suite posterior a Elasticsearch descubrió 72 pruebas: 71 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase y [Elasticsearch](docs/elasticsearch.md) para las verificaciones reales del índice.
+La conexión y migraciones hasta `0011` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones de Brega, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. PostGIS y Elasticsearch están desplegados. Avantix está implementada y validada localmente, pero aún no se cargó en Supabase. Todavía no existen la tercera fuente, filtros de tipo/precio, API JSON, paginación pública ni mapa. La suite actual descubrió 87 pruebas: 86 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 
@@ -101,10 +102,17 @@ Aplicar las migraciones:
 .\.venv\Scripts\python.exe manage.py migrate
 ```
 
-La ingesta es manual y consulta el sitio externo de Brega; puede tardar por la paginación, las fichas y las pausas entre solicitudes:
+La ingesta consulta los sitios externos y puede tardar por la paginación, las fichas y las pausas entre solicitudes. Se puede ejecutar una fuente específica:
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
+.\.venv\Scripts\python.exe manage.py importar_propiedades avantix
+```
+
+Sin argumento procesa ambas fuentes:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py importar_propiedades
 ```
 
 Para iniciar el servidor de desarrollo:
@@ -113,18 +121,18 @@ Para iniciar el servidor de desarrollo:
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. El comando general que importará todas las fuentes en la versión final está acordado pero todavía no implementado: hoy el argumento `brega` es obligatorio. La ejecución local es para desarrollo y pruebas; Django ya está desplegado en Render con Supabase, mientras que la integración Elasticsearch debe desplegarse y PostGIS ya está disponible en el sitio.
+Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. La ejecución local es para desarrollo y pruebas; Django, PostGIS y Elasticsearch ya están disponibles en el sitio desplegado, mientras que Avantix sigue pendiente de publicación.
 
 ## Próximos pasos
 
-1. Crear Elasticsearch en Elastic Cloud y comprobar la conexión desde Django, con credenciales por entorno y vencimiento de la prueba registrado.
-2. Crear el índice con análisis en español y un comando que lo reconstruya desde las propiedades de Supabase; comprobar búsquedas y ranking.
-3. Integrar búsqueda e indexación después de persistir, definir recuperación de errores y probar desde Render.
-4. Incorporar una segunda y luego una tercera inmobiliaria reutilizando el flujo común. Avantix es la siguiente fuente propuesta; la tercera sigue pendiente. Preparar el único comando general de ingesta acordado.
-5. Configurar y probar el workflow de GitHub Actions para automatizar la ingesta, con credenciales en Secrets y sin ejecuciones simultáneas.
-6. Integrar PostGIS para coordenadas y consultas por radio/área con índices espaciales; coordinar texto y filtros desde el backend. Desarrollar frontend y mapa posteriormente y comprobar las features desde la URL pública.
+1. Publicar Avantix, ejecutar manualmente el workflow y validar sus datos en Supabase, Elasticsearch y Render.
+2. Aislar los fallos por fuente para que una inmobiliaria caída no impida procesar las demás, informando al final cuáles fallaron.
+3. Elegir e integrar la tercera inmobiliaria reutilizando el flujo común.
+4. Definir recuperación incremental, limpieza de índices físicos anteriores y política de publicaciones retiradas.
+5. Completar filtros estructurados, paginación y una API para el frontend; ampliar la geografía cuando corresponda.
+6. Definir e implementar el frontend y el mapa después de completar el backend prioritario.
 
-El workflow y frecuencia de GitHub Actions, visibilidad del repositorio y cuota disponible, proveedor e intervalo de los pings, validación de la geocodificación experimental y extracción de localidad, tratamiento de publicaciones retiradas, coordinación/paginación de búsquedas y configuración de Elastic Cloud siguen pendientes. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
+Siguen pendientes comprobar el historial e intervalo del ping, registrar el vencimiento exacto de Elastic Cloud, validar la geocodificación experimental, tratar publicaciones retiradas, aislar fallos por fuente y completar la paginación. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
 
 ## Contexto para colaborar
 

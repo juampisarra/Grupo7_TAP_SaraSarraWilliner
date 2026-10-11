@@ -1,17 +1,17 @@
-from urllib.parse import urljoin
 import time
 import re
-import unicodedata
+
 import logging
 import math
 import requests
-from bs4 import BeautifulSoup
-from .contratos import DetallesPropiedad, PublicacionNormalizada
-from .normalizacion import (
-        normalizar_precio,
-        normalizar_tipo,
-        normalizar_operaciones
-        )
+
+from .contratos import PublicacionNormalizada
+from .tokko import (
+    leer_detalles as leer_detalles_tokko,
+    leer_listado,
+    recorrer_paginas,
+)
+
 
 URL_BASE = "https://www.bregainmobiliaria.ar"
 URLS_BUSQUEDA= {
@@ -72,65 +72,10 @@ def extraer_detalles(url_original):
     return leer_detalles(respuesta.text)
 
 
-def _etiqueta(texto):
-    texto = unicodedata.normalize("NFKD", texto.casefold())
-    return " ".join("".join(c for c in texto if not unicodedata.combining(c)).split())
-
-
 def leer_detalles(html):
-    """Selectores verificados en fichas Brega; no infiere datos de la prosa."""
-    documento = BeautifulSoup(html, "html.parser")
-    if not documento.select_one(".ficha_detalle_item, #lista_informacion_basica, #prop-desc"):
-        raise ValueError("No se reconoció la estructura de la ficha Brega")
-    valores = {}
-    for detalle in documento.select(".ficha_detalle_item"):
-        etiqueta = detalle.select_one("b")
-        if etiqueta:
-            textos = list(detalle.stripped_strings)
-            if len(textos) > 1:
-                valores[_etiqueta(etiqueta.get_text())] = " ".join(textos[1:])
-    for item in documento.select("#lista_informacion_basica li"):
-        nombre, separador, valor = item.get_text(" ", strip=True).partition(":")
-        if separador:
-            valores[_etiqueta(nombre)] = valor.strip()
-
-    def cantidad(nombre):
-        valor = valores.get(nombre)
-        if valor is None or not valor.strip():
-            return None
-        if _etiqueta(valor) in ("no informado", "no especificado", "consultar", "-", "s/d"):
-            return None
-        if not re.fullmatch(r"\d+", valor) or int(valor) > 32767:
-            raise ValueError(f"Cantidad de {nombre} inválida: {valor}")
-        return int(valor)
-
-    titulo = documento.select_one("meta[property='og:title']")
-    descripcion = documento.select_one("#prop-desc")
-    # El sitio entrega HTML escapado dentro de #prop-desc.
-    texto_descripcion = (
-        BeautifulSoup(descripcion.get_text(" ", strip=True), "html.parser").get_text(" ", strip=True)
-        if descripcion else None
-    )
-    if not texto_descripcion:
-        meta = documento.select_one("meta[property='og:description']")
-        texto_descripcion = meta.get("content") if meta else None
-    caracteristicas = list(dict.fromkeys(
-        item.get_text(" ", strip=True)
-        for item in documento.select(".ficha_ul li")
-        if item.get_text(" ", strip=True)
-    ))
-    return DetallesPropiedad(
-        titulo=titulo.get("content") if titulo else None,
-        descripcion=texto_descripcion,
-        caracteristicas="\n".join(caracteristicas) or None,
-        # 'Ubicación' puede ser un barrio. No se convierte en ciudad.
-        zona=valores.get("ubicacion"),
-        ciudad=valores.get("ciudad"),
-        provincia=valores.get("provincia"),
-        dormitorios=cantidad("dormitorios"),
-        ambientes=cantidad("ambientes"),
-        banos=cantidad("banos"),
-        **leer_ubicacion_mapa(documento),
+    return leer_detalles_tokko(
+        html,
+        extraer_ubicacion=leer_ubicacion_mapa,
     )
 
 
@@ -138,7 +83,7 @@ def extraer_dormitorios(url_original):
     """Compatibilidad para llamadas anteriores; la ingesta usa la ficha completa."""
     return extraer_detalles(url_original).dormitorios
 
-def extraer_pagina(numero_pagina, operacion="venta"):
+def extraer_pagina(numero_pagina, operacion="alquiler"):
     if operacion not in URLS_BUSQUEDA:
         raise ValueError(f"Operacion desconocida: {operacion}")
     url_busqueda = URLS_BUSQUEDA[operacion]
@@ -157,94 +102,18 @@ def extraer_pagina(numero_pagina, operacion="venta"):
     #Mira el codigo de respuesta HTTP (200,404,500,etc).
     respuesta.raise_for_status()
 
+    return leer_listado(respuesta.text, URL_BASE)
 
-    documento = BeautifulSoup(respuesta.text, "html.parser")
-    tarjetas = documento.select("li[prop-id]")
-
-    #prepara la lisat final, la crea vacia y dentro del ciclo agregamos
-    #un diccionario por cada propiedad
-    propiedades = []
-
-    #en cada vuelta, tarjeta representa a un prop-id fiferente.
-    for tarjeta in tarjetas:
-        direccion_elemento = tarjeta.select_one(".prop-desc-dir")
-        tipo_elemento = tarjeta.select_one(".prop-desc-tipo-ub")
-        tipo_descripcion = (
-            tipo_elemento.get_text(" ", strip=True)
-            if tipo_elemento
-            else None
-        )
-        tipo = normalizar_tipo(tipo_descripcion)
-        en_venta, en_alquiler = normalizar_operaciones(tipo_descripcion)
-        precio_elemento = tarjeta.select_one(".prop-valor-nro")
-        precio_crudo = (
-            next(precio_elemento.stripped_strings, None)
-            if precio_elemento
-            else None
-        )
-        #aca llama a la funcion en normalizacion.py
-        precio, moneda = normalizar_precio(precio_crudo)
-
-        enlace_elemento = tarjeta.select_one("a[href]")
-
-        #Diccionario con nombres uniformes, independiente de como Brega llame a los elementos en su HTML
-        propiedad = {
-            "identificador_fuente": tarjeta.get("prop-id"),
-            "direccion": (
-                direccion_elemento.get_text(strip= True)
-                if direccion_elemento
-                else None
-            ),
-            "tipo": tipo,
-            "en_venta": en_venta,
-            "en_alquiler": en_alquiler,
-            "precio_crudo": precio_crudo,
-            "precio": precio,
-            "moneda": moneda,
-            "url_original": (
-                urljoin(URL_BASE, enlace_elemento.get("href"))
-                if enlace_elemento
-                else None
-            ),
-        }
-
-        propiedades.append(propiedad)
-
-    return propiedades
-
-def extraer_primera_pagina(operacion= "venta"):
+def extraer_primera_pagina(operacion="alquiler"):
     return extraer_pagina(1,operacion)
 
-def extraer_todas_las_paginas(operacion = "venta", max_paginas=50):
-    propiedades = []
-    identificadores_vistos = set()
-
-    for numero_pagina in range (1, max_paginas + 1):
-        lote = extraer_pagina(numero_pagina, operacion)
-        if not lote :
-            break
-        nuevas = []
-
-        for propiedad in lote:
-            identificador = propiedad["identificador_fuente"]
-
-            if identificador in identificadores_vistos:
-                continue
-
-            identificadores_vistos.add(identificador)
-            nuevas.append(propiedad)
-
-        if not nuevas:
-            break
-        propiedades.extend(nuevas)
-        time.sleep(0.5)
-
-    else:
-        raise RuntimeError(
-            f"Se alcanzó el limite de {max_paginas} paginas"
-        )
-
-    return propiedades
+def extraer_todas_las_paginas(operacion="alquiler", max_paginas=50):
+    return recorrer_paginas(
+        extraer_pagina,
+        operacion,
+        max_paginas,
+        time.sleep,
+    )
 
 class AdaptadorBrega:
     """Traduce la extracción al contrato común, sin persistir datos."""

@@ -1,8 +1,8 @@
 # Despliegue básico y continuidad
 
-Actualización del 10 de octubre: el equipo desplegó las correcciones de health/plantilla/PostGIS y se verificaron los endpoints públicos. Elasticsearch ya está conectado y cargado localmente con 173 documentos; falta desplegar esta nueva integración. El ping de cron-job.org fue creado, con historial aún pendiente de comprobación.
+Actualización del 11 de octubre: health, plantilla, PostGIS y Elasticsearch están desplegados; se verificaron los endpoints, la búsqueda pública y el formulario textual mínimo. GitHub Actions ejecutó correctamente la ingesta general y reconstrucción del índice. Avantix está integrada y validada localmente, pero falta publicar este código y comprobar su primera carga en Supabase/Elasticsearch. El ping de cron-job.org fue creado, con historial aún pendiente de comprobación.
 
-Para publicar Elasticsearch, agregar en **Environment** del servicio Render `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` y `ELASTICSEARCH_INDEX=propiedades`, usando los mismos valores locales, sin comillas adicionales. Nunca subir `.env`. Después publicar el código nuevo y verificar `/propiedades/?operacion=alquiler&q=departamento%20con%20cochera`; esta instantánea devuelve cinco avisos en local. No ejecutar reconstrucción en el build ni desde una visita: el alias ya está cargado. Ver [comandos y próximos pasos](elasticsearch.md). Sin las variables, el listado normal sigue funcionando y las búsquedas textuales devuelven 503.
+Render ya tiene `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` y `ELASTICSEARCH_INDEX=propiedades` en **Environment**. Nunca subir `.env`. Ante una nueva configuración, copiar los valores sin comillas adicionales y verificar `/propiedades/?operacion=alquiler&q=departamento%20con%20cochera`. No ejecutar reconstrucción en el build ni desde una visita; la actualización corresponde al workflow o a un comando de mantenimiento explícito. Ver [comandos y próximos pasos](elasticsearch.md). Sin las variables, el listado normal sigue funcionando y las búsquedas textuales devuelven 503.
 
 Para continuar desde la cuenta propietaria de Render, seguir la [guía de entrega al compañero](continuidad.md): variables, publicación, URLs de prueba, resolución de problemas y lista de pendientes. Actualizar el `.env` local no actualiza Render; el archivo no se comparte mediante Git.
 
@@ -106,22 +106,22 @@ Render Free puede entrar en reposo tras 15 minutos sin tráfico y la siguiente s
 
 ## Cómo funcionan los datos hoy
 
-El sitio consulta las propiedades ya guardadas en Supabase. Una visita o un cambio de filtro no ejecuta scraping. El scraper todavía se ejecuta manualmente, desde una computadora con el entorno configurado:
+El sitio consulta las propiedades ya guardadas en Supabase. Una visita o un cambio de filtro no ejecuta scraping. GitHub Actions ejecuta semanalmente el comando general de ingesta y luego reconstruye Elasticsearch; también admite ejecución manual. Para mantenimiento desde una computadora con el entorno configurado se puede importar todo o una fuente específica:
 
 ```powershell
+.\.venv\Scripts\python.exe manage.py importar_propiedades
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
+.\.venv\Scripts\python.exe manage.py importar_propiedades avantix
 ```
 
-Después de esa ingesta, el sitio puede consultar los datos actualizados en la misma base. Para actualizar también las búsquedas textuales, ejecutar por separado `python manage.py reconstruir_indice` al terminar la ingesta: la sincronización automática todavía no existe. No hace falta volver a desplegar para ver cambios de datos. `--completar-ubicacion` sigue siendo opcional; consultar [la guía de bases y enriquecimiento](base_de_datos.md). Evitar ejecuciones simultáneas que usen Nominatim y escrituras durante una reconstrucción.
+Después de una ingesta manual, ejecutar `python manage.py reconstruir_indice` para actualizar las búsquedas textuales. El workflow ya realiza ambos pasos automáticamente y conserva el alias anterior si falla la reconstrucción. No hace falta volver a desplegar para ver cambios de datos. `--completar-ubicacion` sigue siendo opcional; consultar [la guía de bases y enriquecimiento](base_de_datos.md). Evitar ejecuciones simultáneas que usen Nominatim y escrituras durante una reconstrucción.
 
-La versión final tendrá un solo comando general para todas las fuentes registradas, pero hoy `brega` es obligatorio y es la única fuente disponible. GitHub Actions todavía no está configurado. PostGIS y los filtros por radio/rectángulo están desplegados. Elasticsearch está implementado y probado localmente contra Elastic Cloud; faltan las variables y la publicación en Render. Otras inmobiliarias, sincronización automática del índice, filtros de tipo/precio, API de búsqueda, frontend definitivo y mapa siguen pendientes.
+El comando general y GitHub Actions ya están implementados y verificados. Brega está operativa en Supabase; Avantix está registrada y validada en una base SQLite efímera, pero todavía falta publicar este código y ejecutar/validar su primera carga contra Supabase y Elasticsearch. Al desplegarla no requiere Secrets nuevos. Sus marcadores de Google Maps se guardarán como puntos exactos sin radio por decisión del equipo, de modo que entrarán en los filtros espaciales predeterminados; la fuente no garantiza expresamente esa precisión. Un fallo de listado o paginación de una fuente todavía aborta el comando general; los errores de fichas individuales se registran y la ingesta continúa. PostGIS, Elasticsearch y los filtros por radio/rectángulo están desplegados. La tercera inmobiliaria, recuperación incremental, filtros de tipo/precio, API, frontend definitivo y mapa siguen pendientes.
 
 ## Elasticsearch en Elastic Cloud
 
-El 10 de octubre se completaron creación del servicio, conexión desde Django, carga inicial y reconstrucción del índice, análisis en español y búsquedas locales por relevancia. El alias `propiedades` contiene 173 documentos; se verificó una segunda reconstrucción sin duplicar resultados. Los detalles de comandos, ranking y recuperación están en [Elasticsearch](elasticsearch.md).
+El 10 de octubre se completaron creación del servicio, conexión desde Django, carga inicial y reconstrucción del índice, análisis en español y búsquedas por relevancia. El alias `propiedades` contenía 173 documentos en esa revisión; se verificó una segunda reconstrucción sin duplicar resultados. Los detalles de comandos, ranking y recuperación están en [Elasticsearch](elasticsearch.md).
 
-La búsqueda acepta `q` en `/propiedades/`, devuelve resultados ordenados por relevancia y conserva filtros de operación y PostGIS. Supabase mantiene la autoridad sobre los datos. Sin `q`, el listado no consulta Elasticsearch. No se agregó un formulario ni mapa: se prueba por URL.
+La búsqueda acepta `q` en `/propiedades/`, dispone de un formulario mínimo, devuelve resultados ordenados por relevancia y conserva filtros de operación y PostGIS. Supabase mantiene la autoridad sobre los datos. Sin `q`, el listado no consulta Elasticsearch. No hay mapa ni frontend definitivo.
 
-El siguiente paso es publicar desde la cuenta propietaria de Render según [continuidad](continuidad.md). Luego integrar actualización del índice posterior al guardado y recuperación de fallos. La prueba ya está activa; registrar en el panel su fecha/hora exactas de vencimiento y confirmar la cobertura de la evaluación del martes 13. La continuidad posterior sigue pendiente.
-
-Después se prepararán el comando general y GitHub Actions para automatizar la ingesta, además de completar las demás features. La lista ordenada está en [trabajo que sigue](continuidad.md#trabajo-que-sigue).
+El siguiente paso es publicar la integración de Avantix, ejecutar manualmente el workflow y comprobar datos de ambas fuentes en Supabase, Elasticsearch y `/propiedades/`. Luego corresponde definir tolerancia ante fallos completos de una fuente, recuperación incremental y limpieza de versiones físicas. Registrar también la fecha/hora exactas de vencimiento de Elastic y su continuidad posterior. La lista ordenada está en [trabajo que sigue](continuidad.md#trabajo-que-sigue).

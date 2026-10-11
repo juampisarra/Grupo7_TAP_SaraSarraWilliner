@@ -214,6 +214,25 @@ class IngestaTests(TestCase):
         self.assertEqual(propiedad.ciudad, "")
         self.geocoding.assert_not_called()
 
+    def test_punto_exacto_de_fuente_conserva_false_y_no_geocodifica(self):
+        self.adaptador.extraer_detalles.return_value = DetallesPropiedad(
+            latitud=-31.250540799413834,
+            longitud=-61.49395149727678,
+            ubicacion_aproximada=False,
+            radio_ubicacion_m=None,
+        )
+
+        importar_fuente(self.adaptador)
+
+        propiedad = Propiedad.objects.get()
+        self.assertEqual(
+            (propiedad.latitud, propiedad.longitud),
+            (-31.250540799413834, -61.49395149727678),
+        )
+        self.assertIs(propiedad.ubicacion_aproximada, False)
+        self.assertIsNone(propiedad.radio_ubicacion_m)
+        self.geocoding.assert_not_called()
+
     def test_cambio_direccion_usa_coordenadas_nuevas_publicadas(self):
         self.existente(direccion="Anterior 100", latitud=-31, longitud=-61)
         self.adaptador.extraer_detalles.return_value = DetallesPropiedad(
@@ -247,6 +266,59 @@ class IngestaTests(TestCase):
         call_command("importar_brega", verbosity=0)
         call_command("importar_propiedades", "brega", verbosity=0)
         self.assertEqual(Propiedad.objects.count(), 1)
+
+
+class ComandoGeneralIngestaTests(SimpleTestCase):
+    def setUp(self):
+        self.avantix = SimpleNamespace(nombre="Avantix")
+        self.brega = SimpleNamespace(nombre="Brega")
+        self.crear_avantix = Mock(return_value=self.avantix)
+        self.crear_brega = Mock(return_value=self.brega)
+        self.fuentes = {
+            "avantix": self.crear_avantix,
+            "brega": self.crear_brega,
+        }
+
+    def test_sin_argumento_importa_ambas_fuentes_en_orden(self):
+        from propiedades.ingesta import ResumenIngesta
+
+        with (
+            patch(
+                "propiedades.management.commands.importar_propiedades.FUENTES",
+                self.fuentes,
+            ),
+            patch(
+                "propiedades.management.commands.importar_propiedades.importar_fuente",
+                return_value=ResumenIngesta(),
+            ) as importar,
+        ):
+            call_command("importar_propiedades", verbosity=0)
+
+        self.crear_avantix.assert_called_once_with()
+        self.crear_brega.assert_called_once_with()
+        self.assertEqual(
+            [llamada.args[0] for llamada in importar.call_args_list],
+            [self.avantix, self.brega],
+        )
+
+    def test_argumento_avantix_no_importa_brega(self):
+        from propiedades.ingesta import ResumenIngesta
+
+        with (
+            patch(
+                "propiedades.management.commands.importar_propiedades.FUENTES",
+                self.fuentes,
+            ),
+            patch(
+                "propiedades.management.commands.importar_propiedades.importar_fuente",
+                return_value=ResumenIngesta(),
+            ) as importar,
+        ):
+            call_command("importar_propiedades", "avantix", verbosity=0)
+
+        self.crear_avantix.assert_called_once_with()
+        self.crear_brega.assert_not_called()
+        self.assertIs(importar.call_args.args[0], self.avantix)
 
 
 class AdaptadorBregaTests(SimpleTestCase):
@@ -353,3 +425,252 @@ class AdaptadorBregaTests(SimpleTestCase):
         self.assertEqual(dato["precio"], Decimal("120000"))
         self.assertTrue(dato["en_venta"])
         self.assertEqual(dato["url_original"], "https://www.bregainmobiliaria.ar/propiedad/12")
+
+class AdaptadorAvantixTests(SimpleTestCase):
+    def test_esta_registrado_como_fuente(self):
+        from propiedades.scraping.avantix import AdaptadorAvantix
+        from propiedades.scraping.fuentes import FUENTES
+
+        self.assertIs(FUENTES["avantix"], AdaptadorAvantix)
+
+    def test_ficha_extrae_campos_y_no_interpreta_un_script_del_mapa(self):
+        from propiedades.scraping.avantix import leer_detalles
+
+        detalle = leer_detalles('''
+          <meta property="og:title" content="Departamento céntrico">
+          <div class="ficha_detalle_item"><b>Ubicación</b><br>Barrio San Martín</div>
+          <div id="prop-desc">&lt;p&gt;Departamento con &lt;b&gt;balcón&lt;/b&gt;.&lt;/p&gt;</div>
+          <ul id="lista_informacion_basica" class="ficha_ul">
+            <li>Ambientes : 3</li>
+            <li>Dormitorios : 2</li>
+            <li>Baños : 1</li>
+          </ul>
+          <ul class="ficha_ul"><li>Patio</li><li>Patio</li></ul>
+          <div id="ficha_mapa"><script>
+            new google.maps.Marker({position: {lat: -31.25, lng: -61.49}});
+          </script></div>
+        ''')
+
+        self.assertEqual(detalle.titulo, "Departamento céntrico")
+        self.assertEqual(detalle.descripcion, "Departamento con balcón .")
+        self.assertEqual((detalle.dormitorios, detalle.ambientes, detalle.banos), (2, 3, 1))
+        self.assertEqual(detalle.zona, "Barrio San Martín")
+        self.assertEqual(detalle.caracteristicas.count("Patio"), 1)
+        self.assertIsNone(detalle.latitud)
+        self.assertIsNone(detalle.longitud)
+        self.assertIsNone(detalle.ubicacion_aproximada)
+        self.assertIsNone(detalle.radio_ubicacion_m)
+
+    def test_punto_google_maps_se_trata_como_ubicacion_exacta(self):
+        from propiedades.scraping.avantix import leer_detalles
+
+        detalle = leer_detalles('''
+          <div id="prop-desc">Departamento</div>
+          <div id="ficha_mapa">
+            <iframe src="https://maps.google.com/maps?q=-31.250540799413834%2C-61.49395149727678&amp;output=embed"></iframe>
+            <iframe src="https://www.google.com/maps/embed/v1/place?key=demo&amp;q=-31.250540799413834%2C-61.49395149727678"></iframe>
+          </div>
+        ''')
+
+        self.assertEqual(
+            (detalle.latitud, detalle.longitud),
+            (-31.250540799413834, -61.49395149727678),
+        )
+        self.assertIs(detalle.ubicacion_aproximada, False)
+        self.assertIsNone(detalle.radio_ubicacion_m)
+
+    def test_punto_cero_es_valido_y_mapa_fuera_de_la_ficha_se_ignora(self):
+        from propiedades.scraping.avantix import leer_detalles
+
+        detalle = leer_detalles('''
+          <iframe src="https://www.google.com/maps/embed/v1/place?q=-31.25%2C-61.49"></iframe>
+          <div id="prop-desc">Departamento</div>
+          <div id="ficha_mapa">
+            <iframe src="https://ejemplo.test/maps?q=-30%2C-60"></iframe>
+            <iframe src="https://maps.google.com/maps?q=Maipu+239"></iframe>
+            <iframe src="https://www.google.com/maps/embed/v1/place?q=0%2C0"></iframe>
+          </div>
+        ''')
+
+        self.assertEqual((detalle.latitud, detalle.longitud), (0, 0))
+        self.assertIs(detalle.ubicacion_aproximada, False)
+
+    def test_coordenadas_invalidas_o_puntos_distintos_se_descartan(self):
+        from propiedades.scraping.avantix import leer_detalles
+
+        casos = (
+            '''
+              <div id="prop-desc">Departamento</div>
+              <div id="ficha_mapa">
+                <iframe src="http://[host-invalido"></iframe>
+              </div>
+            ''',
+            '''
+              <div id="prop-desc">Departamento</div>
+              <div id="ficha_mapa">
+                <iframe src="https://www.google.com/maps/embed/v1/place?q=91%2C-61"></iframe>
+              </div>
+            ''',
+            '''
+              <div id="prop-desc">Departamento</div>
+              <div id="ficha_mapa">
+                <iframe src="https://www.google.com/maps/embed/v1/place?q=-31.25%2C-61.49"></iframe>
+                <iframe src="https://www.google.com/maps/embed/v1/place?q=-32.25%2C-62.49"></iframe>
+              </div>
+            ''',
+        )
+
+        for html in casos:
+            with self.subTest(html=html), self.assertLogs(
+                "propiedades.scraping.avantix",
+                level="WARNING",
+            ):
+                detalle = leer_detalles(html)
+
+            self.assertIsNone(detalle.latitud)
+            self.assertIsNone(detalle.longitud)
+            self.assertIsNone(detalle.ubicacion_aproximada)
+            self.assertIsNone(detalle.radio_ubicacion_m)
+
+    @patch("propiedades.scraping.avantix.requests.get")
+    def test_extraer_detalles_descarga_una_ficha(self, get):
+        get.return_value.text = '<div id="prop-desc">Departamento</div>'
+
+        from propiedades.scraping.avantix import CABECERAS, extraer_detalles
+
+        detalle = extraer_detalles("https://www.avantix.ar/p/11827974")
+
+        get.assert_called_once_with(
+            "https://www.avantix.ar/p/11827974",
+            headers=CABECERAS,
+            timeout=15,
+        )
+        get.return_value.raise_for_status.assert_called_once_with()
+        self.assertEqual(detalle.descripcion, "Departamento")
+
+    @patch("propiedades.scraping.avantix.extraer_detalles")
+    def test_adaptador_delega_la_lectura_de_la_ficha(self, extraer):
+        from propiedades.scraping.avantix import AdaptadorAvantix
+
+        esperado = DetallesPropiedad(titulo="Departamento")
+        extraer.return_value = esperado
+
+        resultado = AdaptadorAvantix().extraer_detalles(
+            "https://www.avantix.ar/p/11827974"
+        )
+
+        extraer.assert_called_once_with("https://www.avantix.ar/p/11827974")
+        self.assertIs(resultado, esperado)
+
+    @patch("propiedades.scraping.avantix.extraer_todas_las_paginas")
+    def test_traduce_listado_al_contrato_comun(self, extraer):
+        extraer.return_value = [{
+            "identificador_fuente": "11827974",
+            "url_original": "https://www.avantix.ar/p/11827974",
+            "direccion": None,
+            "tipo": "Departamento",
+            "precio": Decimal("54000"),
+            "moneda": "USD",
+            "en_venta": True,
+            "en_alquiler": True,
+        }]
+
+        from propiedades.scraping.avantix import AdaptadorAvantix
+
+        dato, = AdaptadorAvantix().extraer("venta")
+
+        extraer.assert_called_once_with("venta")
+        self.assertIsInstance(dato, PublicacionNormalizada)
+        self.assertEqual(dato.identificador_fuente, "11827974")
+        self.assertEqual(dato.url_original, "https://www.avantix.ar/p/11827974")
+        self.assertEqual(dato.direccion, "")
+        self.assertEqual(dato.tipo, "Departamento")
+        self.assertEqual(dato.precio, Decimal("54000"))
+        self.assertEqual(dato.moneda, "USD")
+        self.assertTrue(dato.en_venta)
+        self.assertTrue(dato.en_alquiler)
+
+    @patch("propiedades.scraping.avantix.time.sleep")
+    @patch("propiedades.scraping.avantix.extraer_pagina")
+    def test_limite_de_paginas_evitar_recorrido_infinito(
+        self,
+        extraer_pagina,
+        sleep,
+    ):
+        extraer_pagina.side_effect = [
+            [{"identificador_fuente": "1"}],
+            [{"identificador_fuente": "2"}],
+        ]
+
+        from propiedades.scraping.avantix import extraer_todas_las_paginas
+
+        with self.assertRaisesRegex(RuntimeError, "límite de 2 páginas"):
+            extraer_todas_las_paginas("venta", max_paginas=2)
+
+        self.assertEqual(extraer_pagina.call_count, 2)
+        self.assertEqual(sleep.call_count, 2)
+
+    @patch("propiedades.scraping.avantix.time.sleep")
+    @patch("propiedades.scraping.avantix.extraer_pagina")
+    def test_recorre_paginas_y_evita_repetidos(
+        self,
+        extraer_pagina,
+        sleep,
+    ):
+        propiedad_1 = {"identificador_fuente": "1"}
+        propiedad_2 = {"identificador_fuente": "2"}
+        propiedad_3 = {"identificador_fuente": "3"}
+
+        extraer_pagina.side_effect = [
+            [propiedad_1, propiedad_2],
+            [propiedad_2, propiedad_3],
+            [],
+        ]
+
+        from propiedades.scraping.avantix import extraer_todas_las_paginas
+
+        resultado = extraer_todas_las_paginas("venta")
+
+        self.assertEqual(
+            [propiedad["identificador_fuente"] for propiedad in resultado],
+            ["1", "2", "3"],
+        )
+        self.assertEqual(extraer_pagina.call_count, 3)
+        extraer_pagina.assert_any_call(1, "venta")
+        extraer_pagina.assert_any_call(2, "venta")
+        extraer_pagina.assert_any_call(3, "venta")
+        self.assertEqual(sleep.call_count, 2)
+
+    @patch("propiedades.scraping.avantix.requests.get")
+    def test_extrae_y_normaliza_una_pagina(self, get):
+        get.return_value.text = """
+        <li prop-id="11827974">
+          <a href="/p/11827974-Departamento-en-Venta-Alquiler">
+            Ver detalles
+          </a>
+          <div class="prop-desc-dir">Ituzaingó 660</div>
+          <div class="prop-desc-tipo-ub">
+            Departamento en Venta / Alquiler en Barrio San Martin, Rafaela
+          </div>
+          <div class="prop-valor-nro">
+            USD54.000
+            <div class="codref">AAP11827974</div>
+          </div>
+        </li>
+        """
+
+        from propiedades.scraping.avantix import extraer_pagina
+
+        dato, = extraer_pagina(1, "venta")
+
+        self.assertEqual(dato["identificador_fuente"], "11827974")
+        self.assertEqual(dato["direccion"], "Ituzaingó 660")
+        self.assertEqual(dato["tipo"], "Departamento")
+        self.assertTrue(dato["en_venta"])
+        self.assertTrue(dato["en_alquiler"])
+        self.assertEqual(dato["precio"], Decimal("54000"))
+        self.assertEqual(dato["moneda"], "USD")
+        self.assertEqual(
+            dato["url_original"],
+            "https://www.avantix.ar/p/11827974-Departamento-en-Venta-Alquiler",
+        )

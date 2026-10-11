@@ -1,6 +1,6 @@
 # Continuidad del proyecto y entrega al compañero
 
-Estado al 10 de octubre de 2026. Esta guía permite publicar la integración de Elasticsearch desde la cuenta propietaria de Render. El equipo indicó que la evaluación es el martes 13 de octubre.
+Estado al 11 de octubre de 2026. Elasticsearch y GitHub Actions ya están publicados y verificados. Esta guía conserva el procedimiento de configuración como referencia de recuperación y registra la publicación pendiente de Avantix. El equipo indicó que la evaluación es el martes 13 de octubre.
 
 ## Estado comprobado
 
@@ -12,10 +12,10 @@ Estado al 10 de octubre de 2026. Esta guía permite publicar la integración de 
 | PostgreSQL / Supabase | 173 publicaciones en la revisión; migraciones hasta `0011` aplicadas. |
 | PostGIS | Instalado; almacenamiento espacial e índices GiST. Filtros por radio y rectángulo desplegados, mediante parámetros de URL. |
 | Elastic Cloud | Proyecto creado y conexión real comprobada. Alias `propiedades` cargado con 173 documentos desde Supabase. |
-| Django + Elasticsearch | Código, comandos y búsqueda por `q` probados localmente contra Elastic Cloud. Pendiente publicar este código y configurar Render. |
-| Scraper | Solo Brega, por comando manual. No actualiza automáticamente Elasticsearch. |
+| Django + Elasticsearch | Desplegado en Render; búsqueda por `q`, relevancia y formulario mínimo verificados públicamente. |
+| Scraper | Brega desplegada. Avantix implementada, registrada y validada localmente con 275 publicaciones efímeras; falta publicar y validar su carga en Supabase. |
 | cron-job.org | Job creado; falta comprobar una ejecución programada exitosa en su historial. |
-| GitHub Actions | Workflow y programación pendientes. |
+| GitHub Actions | Workflow general, Secrets, concurrencia, ejecución manual y programación semanal verificados. Reconstruye Elasticsearch después de la ingesta. |
 
 Los conteos son una instantánea, no valores esperados permanentes. Elastic Cloud es remoto: el índice ya cargado se puede usar desde Render sin mantener una computadora encendida.
 
@@ -82,7 +82,7 @@ Abrir estas URLs después del despliegue:
 
 Las cantidades pueden cambiar al actualizar datos. Para verificar Elasticsearch, comprobar también que aparezca el texto de resultados por relevancia y que cambiar venta/alquiler conserve `q`. Un HTTP 200 por sí solo no prueba la integración: la versión anterior puede ignorar `q` y mostrar todos los avisos.
 
-No hay un formulario nuevo de búsqueda ni un mapa. Texto y geografía se prueban por URL en el listado existente, de acuerdo con la prioridad de backend. Por defecto los filtros geográficos solo aceptan ubicaciones declaradas exactas; los datos actuales de Brega son aproximados. `incluir_aproximadas=1` permite consultar sus centros publicados, sin garantizar la ubicación real dentro del radio. Ver [precisión y parámetros](postgis.md).
+Hay un formulario textual mínimo para probar `q`, pero no un frontend definitivo ni un mapa. La geografía se prueba por parámetros de URL en el listado existente, de acuerdo con la prioridad de backend. Por defecto los filtros geográficos solo aceptan `ubicacion_aproximada=False`; los datos desplegados actuales de Brega son aproximados. `incluir_aproximadas=1` permite consultar sus centros publicados, sin garantizar la ubicación real dentro del radio. Cuando Avantix se despliegue y se ingiera, sus puntos entrarán en el filtro predeterminado porque el equipo decidió guardarlos como exactos y sin radio, aunque la fuente no declare esa precisión. Ver [precisión y parámetros](postgis.md).
 
 ## 4. Resolver problemas de publicación
 
@@ -103,27 +103,28 @@ En cron-job.org, revisar **Ping Observatorio Grupo 7**: habilitado, método GET 
 
 Una prueba manual verifica la URL, pero no demuestra que funcione la programación. Esperar una ejecución programada y abrir **Historial**: comprobar fecha/hora y respuesta HTTP 200. Registrar ese resultado. Un guion en «Última ejecución» no confirma que se haya realizado el ping. Este job mantiene tráfico al servicio; no ejecuta el scraper ni actualiza el índice.
 
-## Mantenimiento manual mientras no haya automatización
+## Mantenimiento manual y recuperación
 
-Cuando se necesite refrescar Brega, ejecutar en un único entorno configurado contra Supabase y Elastic, sin otra ingesta o reconstrucción simultánea:
+GitHub Actions ya ejecuta semanalmente la ingesta general y reconstruye el índice. Cuando sea necesario realizar mantenimiento manual, usar un único entorno configurado contra Supabase y Elastic, sin otra ingesta o reconstrucción simultánea:
 
 ```powershell
-.\.venv\Scripts\python.exe -X utf8 manage.py importar_propiedades brega
+.\.venv\Scripts\python.exe -X utf8 manage.py importar_propiedades
 .\.venv\Scripts\python.exe -X utf8 manage.py reconstruir_indice
 ```
 
-Son dos pasos separados. Ejecutar la reconstrucción después de comprobar que terminó la ingesta. Si falla Elasticsearch, los datos guardados en PostgreSQL se conservan; corregir el problema y reintentar la reconstrucción. Hasta completarla, las búsquedas textuales pueden reflejar el índice anterior. No es necesario redesplegar Render para publicar cambios de datos.
+Para aislar una fuente se puede agregar `brega` o `avantix` al primer comando. Son dos pasos separados: ejecutar la reconstrucción después de comprobar que terminó la ingesta. Si falla Elasticsearch, los datos guardados en PostgreSQL se conservan; corregir el problema y reintentar la reconstrucción. Hasta completarla, las búsquedas textuales pueden reflejar el índice anterior. No es necesario redesplegar Render para publicar cambios de datos.
 
 La reconstrucción crea una versión nueva y cambia el alias tras validar la carga. Conserva versiones anteriores; no borrarlas sin identificar el índice activo. Evitar escrituras durante la reconstrucción. Ver [procedimiento y límites de recuperación](elasticsearch.md).
 
+El comando general procesa `avantix` antes que `brega`. Los errores de una ficha individual se aíslan, pero un fallo de listado o paginación todavía aborta la ejecución completa y evita la reconstrucción posterior. La tolerancia por fuente y la recuperación incremental siguen pendientes.
+
 ## Trabajo que sigue
 
-1. **Cerrar esta publicación:** variables y código en Render, pruebas públicas, historial del ping y vencimiento exacto de Elastic. La continuidad después de la prueba sigue pendiente.
-2. **Sincronizar ingesta e índice:** persistir primero en PostgreSQL, actualizar Elasticsearch después y definir reintentos/recuperación ante fallos. La reconstrucción completa ya existe, pero la sincronización automática todavía no.
-3. **Preparar el comando general de ingesta** para todas las fuentes registradas. Hoy `brega` es obligatorio; no configurar un comando sin argumentos antes de implementar esa ampliación.
-4. **Automatizar con GitHub Actions:** Secrets, ejecución manual inicial, horario acordado, exclusión de ejecuciones simultáneas y actualización del índice. Actualmente no hay workflow. El repositorio se comprobó público el 9 de octubre; revisar esa condición al configurarlo.
-5. **Completar las fuentes:** verificar Avantix, reutilizar el adaptador cuando sea compatible y elegir/implementar la tercera inmobiliaria. Definir también el tratamiento de avisos retirados.
-6. **Completar búsquedas del backend:** filtros de tipo y precio con moneda/operación, paginación y API; ampliar geografía a polígonos y definir el tratamiento de áreas aproximadas cuando corresponda.
-7. **Frontend y mapa:** definirlos e implementarlos después del backend. No están incluidos en esta etapa.
+1. **Publicar y validar Avantix:** hacer push/despliegue, ejecutar manualmente el workflow y comprobar identidad, conteos y búsquedas de ambas fuentes en Supabase, Elasticsearch y Render.
+2. **Cerrar la operación del despliegue:** comprobar historial del ping y vencimiento exacto de Elastic. La continuidad después de la prueba sigue pendiente.
+3. **Mejorar recuperación:** definir tolerancia por fuente, recuperación incremental y limpieza de versiones físicas anteriores. La reconstrucción completa automática ya existe.
+4. **Completar las fuentes:** elegir e implementar la tercera inmobiliaria y definir el tratamiento de avisos retirados.
+5. **Completar búsquedas del backend:** filtros de tipo y precio con moneda/operación, paginación y API; ampliar geografía a polígonos y definir el tratamiento de áreas aproximadas cuando corresponda.
+6. **Frontend y mapa:** definirlos e implementarlos después del backend. No están incluidos en esta etapa.
 
-La suite registrada para esta integración descubrió 72 pruebas: 71 aprobadas y una integración PostGIS omitida al usar SQLite. También pasaron la comprobación de migraciones pendientes y dependencias. Las pruebas reales de Elastic y PostGIS se describen en sus respectivas guías; la búsqueda desde Render queda pendiente del compañero.
+La suite posterior a la integración local de Avantix descubrió 87 pruebas: 86 aprobadas y una integración PostGIS omitida al usar SQLite. También pasaron la comprobación de migraciones pendientes y dependencias. La ingesta efímera previa al lector geográfico procesó 275 publicaciones Avantix únicas, verificó 274 fichas y no modificó Supabase ni Elasticsearch; una prueba pública posterior confirmó la extracción del punto real como exacto y sin radio. Las pruebas reales de Elastic y PostGIS se describen en sus respectivas guías; la publicación de Avantix en Render queda pendiente.
