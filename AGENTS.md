@@ -57,15 +57,17 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
-### Integración local de Avantix — 11 de octubre de 2026
+### Integración de Avantix desplegada — 11 de octubre de 2026
 
-Avantix está implementada y registrada como segunda fuente mediante `AdaptadorAvantix`. Brega y Avantix reutilizan parsers comunes de Tokko para listados y campos generales de ficha; la configuración de URLs y la interpretación geográfica permanecen separadas por fuente. El comando específico es `python manage.py importar_propiedades avantix` y el comando sin argumentos recorre ambas fuentes, por lo que el workflow existente no requiere cambios ni Secrets adicionales cuando este código se despliegue.
+Avantix está implementada y registrada como segunda fuente mediante `AdaptadorAvantix`. Brega y Avantix reutilizan parsers comunes de Tokko para listados y campos generales de ficha; la configuración de URLs y la interpretación geográfica permanecen separadas por fuente. El comando específico es `python manage.py importar_propiedades avantix` y el comando sin argumentos recorre ambas fuentes; el workflow existente la incorporó sin cambios ni Secrets adicionales.
 
 La validación pública de solo lectura obtuvo HTTP 200 en `/Venta` y `/Alquiler`, con 20 tarjetas completas en el primer lote de cada operación. `?p=2` devolvió 20 avisos de venta y 15 de alquiler, y `?p=99` terminó sin tarjetas mediante `--NoMoreProperties--`. Una ficha real confirmó `#prop-desc`, `.ficha_detalle_item`, `#lista_informacion_basica` y `.ficha_ul`; el parser obtuvo título, descripción, zona, ambientes, dormitorios y baños.
 
 El mapa de Avantix observado contiene un marcador de Google Maps con coordenadas, pero no publica un círculo ni un radio. Por decisión confirmada del equipo el 11 de octubre, la integración trata ese marcador como una ubicación exacta: lee únicamente `q=latitud,longitud` del iframe de Google Maps dentro de `#ficha_mapa`, valida el par y guarda `ubicacion_aproximada=False` con `radio_ubicacion_m=NULL`. Formatos desconocidos, valores inválidos y varios puntos distintos se descartan. No se reutiliza el lector de círculos de Brega. Esta clasificación como exacta es una decisión del equipo; la fuente no declara explícitamente esa precisión.
 
-Una ingesta real controlada contra la base efímera de pruebas de Django procesó 275 publicaciones únicas: 250 de venta y 35 de alquiler, con superposición entre operaciones. Verificó 274 fichas y continuó correctamente ante un error de detalle; el resumen temporal no conservó la URL ni la causa concreta, por lo que debe revisarse en los logs de la próxima ejecución. Los otros 274 registros obtuvieron título, descripción y dormitorios verificados. Esa ingesta se hizo antes de habilitar la extracción del marcador, por lo que no recibió coordenadas y no mide cuántas fichas actuales las publican. Después se verificó una ficha pública real: el parser obtuvo `-31.250540799413834, -61.49395149727678`, precisión exacta según la decisión del equipo y radio nulo. La base efímera se destruyó al finalizar: no se modificaron `db.sqlite3`, Supabase ni Elasticsearch. Avantix todavía no está desplegada ni incorporada a los datos públicos.
+Una ingesta real controlada contra la base efímera de pruebas de Django procesó 275 publicaciones únicas: 250 de venta y 35 de alquiler, con superposición entre operaciones. Verificó 274 fichas y continuó correctamente ante un error de detalle; el resumen temporal no conservó la URL ni la causa concreta, por lo que debe revisarse en los logs de la próxima ejecución. Los otros 274 registros obtuvieron título, descripción y dormitorios verificados. Esa ingesta se hizo antes de habilitar la extracción del marcador, por lo que no recibió coordenadas y no mide cuántas fichas actuales las publican. Después se verificó una ficha pública real: el parser obtuvo `-31.250540799413834, -61.49395149727678`, precisión exacta según la decisión del equipo y radio nulo. La base efímera se destruyó al finalizar: no se modificaron `db.sqlite3`, Supabase ni Elasticsearch.
+
+Después del push, el equipo confirmó una ejecución manual exitosa del workflow con ambas inmobiliarias. Supabase muestra 275 registros al filtrar `fuente=Avantix`, con coordenadas cargadas en las filas observadas, y la búsqueda pública devuelve correctamente publicaciones de Brega y Avantix después de reconstruir Elasticsearch. Avantix queda considerada desplegada y operativa; no requirió migraciones, variables de entorno ni Secrets adicionales.
 
 Validación automática posterior: 87 pruebas descubiertas, 86 aprobadas y una integración PostGIS omitida al usar SQLite. La suite incluye el iframe realista de Avantix, punto cero, formatos inválidos o ambiguos y persistencia de `False` sin geocodificación. `makemigrations --check --dry-run` no detectó cambios y `pip check` no encontró dependencias rotas. El comando general procesa las fuentes en orden alfabético (`avantix`, luego `brega`). Los errores de una ficha se aíslan, pero un fallo de listado o paginación de cualquier fuente todavía aborta el comando general y evita la reconstrucción posterior del índice. El equipo acordó implementar más adelante aislamiento por fuente: registrar el fallo, continuar con las fuentes restantes y finalizar informando cuáles fallaron.
 
@@ -77,7 +79,15 @@ Elasticsearch quedó configurado en Render y el equipo confirmó que la búsqued
 
 La automatización actual hace una reconstrucción completa después de cada ingesta, no indexación incremental después de cada propiedad. Ante un fallo durante la reconstrucción, los datos nuevos permanecen en PostgreSQL y el alias anterior de Elasticsearch continúa atendiendo búsquedas. Siguen pendientes la recuperación incremental, una política de limpieza de versiones físicas anteriores y la política de publicaciones retiradas.
 
-La siguiente feature en desarrollo es Avantix como segunda fuente. Antes de implementarla se verificó mediante solicitudes públicas que `/Venta` y `/Alquiler` usan tarjetas Tokko con `li[prop-id]`, `.prop-desc-tipo-ub`, `.prop-desc-dir` y `.prop-valor-nro`; `?p=2` devuelve lotes parciales de 20 avisos y las páginas posteriores terminan con `--NoMoreProperties--`. Las fichas comparten `#prop-desc`, `.ficha_detalle_item`, `#lista_informacion_basica` y `.ficha_ul`. A diferencia de Brega, el mapa observado usa un punto de Google Maps sin publicar un radio ni declarar precisión. La precaución inicial de no persistirlo fue reemplazada por la decisión confirmada del equipo de tratarlo como exacto.
+La integración de Avantix se apoyó en solicitudes públicas que verificaron que `/Venta` y `/Alquiler` usan tarjetas Tokko con `li[prop-id]`, `.prop-desc-tipo-ub`, `.prop-desc-dir` y `.prop-valor-nro`; `?p=2` devuelve lotes parciales de 20 avisos y las páginas posteriores terminan con `--NoMoreProperties--`. Las fichas comparten `#prop-desc`, `.ficha_detalle_item`, `#lista_informacion_basica` y `.ficha_ul`. A diferencia de Brega, el mapa observado usa un punto de Google Maps sin publicar un radio ni declarar precisión. La precaución inicial de no persistirlo fue reemplazada por la decisión confirmada del equipo de tratarlo como exacto.
+
+### Data API de Supabase desactivada — 11 de octubre de 2026
+
+El Security Advisor de Supabase mostró `RLS Disabled in Public` para las tablas creadas por Django en `public`, incluidas las tablas de autenticación, sesiones, migraciones, `propiedades_propiedad` y `propiedades_consultalocalidad`. El aviso confirmaba que RLS estaba desactivado, pero no indicó una filtración de credenciales ni demostró por sí solo acceso efectivo: ese acceso depende de la combinación de esquemas expuestos, grants y RLS.
+
+El repositorio no usa `supabase-js`, REST, GraphQL, claves `anon` ni la Data API; Django, GitHub Actions y los comandos de mantenimiento se conectan directamente a PostgreSQL mediante psycopg. El equipo desactivó la Data API y comprobó después el listado, la búsqueda textual y un filtro geográfico PostgreSQL/PostGIS. Todo continuó funcionando. La operación no borró datos ni modificó RLS o grants. El Security Advisor puede seguir mostrando el hallazgo porque desactivar la API no activa RLS.
+
+No se encontraron secretos reales versionados: `.env` está ignorado y no aparece en el historial, y GitHub Actions referencia Repository Secrets sin incluir sus valores. No hay una tarea de seguridad abierta por este hallazgo. Si en el futuro se decide reactivar la Data API para consumir Supabase directamente desde un cliente, antes deberán diseñarse RLS, políticas y grants mínimos explícitos. Ver [seguridad de datos](https://supabase.com/docs/guides/database/secure-data) y [seguridad de la Data API](https://supabase.com/docs/guides/api/securing-your-api).
 
 ### Elasticsearch y despliegue — 10 de octubre de 2026
 
@@ -132,7 +142,7 @@ Al actualizar este contexto, el código contiene:
 
 La conexión y las migraciones hasta `0011` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
 
-PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. Elasticsearch, el formulario textual mínimo y GitHub Actions están desplegados y verificados. Avantix está integrada y validada localmente, pero aún no se desplegó ni se cargó en Supabase; todavía no hay una tercera fuente, filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
+PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. Elasticsearch, el formulario textual mínimo, GitHub Actions, Brega y Avantix están desplegados y verificados. Supabase contiene 275 registros de Avantix en la comprobación posterior al despliegue. Todavía no hay una tercera fuente, filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
 
 ```powershell
 $env:DB_ENGINE = "sqlite"
@@ -168,7 +178,7 @@ El alias `importar_brega` también admite `--completar-ubicacion`. Sin esa opci�
 ```text
 Job Python en GitHub Actions (semanal y manual)
   ├─ Scraper/adaptador Brega (disponible)
-  ├─ Scraper/adaptador Avantix (implementado localmente; pendiente de despliegue)
+  ├─ Scraper/adaptador Avantix (desplegado)
   └─ Scraper/adaptador inmobiliaria C (pendiente)
                    │
                    ▼
@@ -261,7 +271,7 @@ El frontend futuro permitirá seleccionar un punto/radio o dibujar un área en u
 
 ## Fuentes exploradas y reutilización
 
-Brega y Avantix tienen scrapers registrados en el repositorio; Avantix está validada localmente y pendiente de despliegue. La tercera fuente todavía no está elegida; se mantiene la propuesta de incorporar otra plataforma para demostrar la extensión con un adaptador distinto.
+Brega y Avantix tienen scrapers registrados, desplegados y validados con datos en Supabase y búsquedas públicas. La tercera fuente todavía no está elegida; se mantiene la propuesta de incorporar otra plataforma para demostrar la extensión con un adaptador distinto.
 
 - Brega: https://www.bregainmobiliaria.ar
 - Avantix: https://www.avantix.ar
@@ -285,19 +295,29 @@ Las prioridades inmediatas son arquitectura de scrapers, modelo común, persiste
 
 ### Avance del despliegue y siguiente paso
 
-El despliegue básico, health, PostGIS, Elasticsearch público, el formulario textual mínimo y GitHub Actions ya están comprobados. Avantix reutiliza la extracción Tokko verificada y persiste el punto validado de su mapa como exacto y sin radio por decisión del equipo. Falta desplegar esta integración, ejecutar la ingesta controlada contra Supabase y validar resultados públicos antes de considerarla operativa en producción.
+El despliegue básico, health, PostGIS, Elasticsearch público, el formulario textual mínimo y GitHub Actions ya están comprobados. Avantix reutiliza la extracción Tokko verificada, persiste el punto validado de su mapa como exacto y sin radio por decisión del equipo, y ya fue ingerida en Supabase e incorporada al índice público.
 
 1. Parsers comunes de listado y ficha, y recorrido común de paginación extraídos sin alterar el comportamiento verificado de Brega; cada fuente conserva sus URLs, solicitudes y configuración.
 2. `AdaptadorAvantix` implementado y registrado, con pruebas de listados, operaciones dobles, precios, detalles, registro y terminación/límite de páginas.
-3. Extracción pública e ingesta efímera local validadas; falta ejecutar una ingesta controlada contra Supabase y reconstruir Elasticsearch mediante el workflow.
-4. Falta comprobar en el despliegue identidad por fuente, ausencia de duplicados, resultados públicos de ambas inmobiliarias y comportamiento operativo ante errores parciales.
+3. Extracción pública, ingesta efímera local, ingesta real en Supabase y reconstrucción de Elasticsearch validadas mediante el workflow.
+4. Identidad por fuente y resultados públicos de ambas inmobiliarias comprobados; el comportamiento operativo ante el fallo completo de una fuente sigue pendiente.
 
-El primer despliegue comprueba la infraestructura; no completa las features pendientes ni requiere definir una nueva interfaz.
+El despliegue de la segunda fuente comprueba la extensibilidad del importador común; no completa las features pendientes ni requiere definir una nueva interfaz.
+
+## Próximos cinco pasos acordados
+
+1. **Tolerancia a fallos por fuente:** aislar errores de listado o paginación, continuar con las demás inmobiliarias, registrar cuáles fallaron y definir un resultado de GitHub Actions que avise del fallo parcial sin descartar la ingesta ni la indexación exitosas.
+2. **Tercera inmobiliaria:** elegirla e integrarla mediante el contrato y los parsers comunes cuando corresponda, sin copiar el importador ni mezclar lógica específica entre fuentes.
+3. **Filtros estructurados:** incorporar tipo, dormitorios y precio, manteniendo precio separado por operación y exigiendo moneda para comparaciones coherentes.
+4. **Paginación y API JSON:** definir un contrato único que combine el orden de Elasticsearch con filtros PostgreSQL/PostGIS y permita al futuro frontend consumir resultados paginados.
+5. **Frontend y mapa:** definir e implementar la interfaz después de completar el backend anterior; el mapa debe enviar geometrías o parámetros al backend y no calcular distancias ni consultar directamente Supabase o Elasticsearch.
+
+En paralelo con el primer paso, comprobar el historial del ping y el vencimiento exacto de Elastic Cloud. Estas tareas operativas no reemplazan los cinco pasos funcionales.
 
 ## Decisiones de implementación pendientes
 
-- Tolerancia a fallos por fuente en la ingesta general: si falla por completo el listado o la paginación de una fuente, registrar el error, continuar con las demás y comunicar al final las fuentes fallidas. Todavía no está implementada; definir también el estado de salida apropiado para que GitHub Actions avise sin descartar el trabajo exitoso.
-- Tercera inmobiliaria; Avantix ya está implementada y validada localmente, pendiente de despliegue y validación contra Supabase/Elasticsearch.
+- Para la tolerancia a fallos por fuente, definir el estado de salida y la secuencia del workflow para que Elasticsearch incorpore los datos exitosos y GitHub Actions igualmente notifique el fallo parcial.
+- Elegir la tercera inmobiliaria; Avantix ya está desplegada y validada contra Supabase, Elasticsearch y la búsqueda pública.
 - Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; política de intersección de áreas de incertidumbre, polígonos arbitrarios y futuras ampliaciones del esquema común; la representación espacial y los filtros básicos ya están implementados. El proyecto Supabase, conexión y migraciones hasta `0011` están verificados.
 - [X] Workflow y frecuencia en GitHub Actions: lunes a las 00:00 de Argentina, ejecución manual, Secrets, exclusión de simultaneidad, comprobación previa de Elastic e indexación completa posterior verificadas.
 - [ ] Automatización pendiente: recuperación incremental y política de limpieza de versiones físicas anteriores del índice.
