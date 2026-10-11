@@ -1,21 +1,28 @@
 ﻿name: Ingesta Semanal de Propiedades
 
 on:
-  # Se ejecuta automáticamente todos los lunes a la medianoche (00:00 UTC)
+  # Lunes a las 00:00 de Argentina (03:00 UTC)
   schedule:
-    - cron: '0 0 * * 1'
-  
-  # Permite ejecutar el workflow manualmente desde la página de GitHub
+    - cron: '0 3 * * 1'
+
   workflow_dispatch:
 
-# Exclusión de ejecuciones simultáneas: si arranca uno nuevo, cancela o espera
 concurrency:
   group: ingesta_propiedades
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   importar:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DJANGO_DEBUG: 'False'
+      DB_ENGINE: postgresql
+      ELASTICSEARCH_INDEX: propiedades
 
     steps:
       - name: Descargar el código
@@ -30,11 +37,22 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Ejecutar scraper (todas las fuentes)
+      - name: Comprobar Elasticsearch
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
-          DJANGO_DEBUG: 'False'
-          DB_ENGINE: ${{ secrets.DB_ENGINE }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGSSLMODE: ${{ secrets.PGSSLMODE }}
+          ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
+          ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
+        run: python manage.py comprobar_elasticsearch
+
+      - name: Ejecutar ingesta
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
           PGPORT: ${{ secrets.PGPORT }}
           PGDATABASE: ${{ secrets.PGDATABASE }}
@@ -42,3 +60,16 @@ jobs:
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGSSLMODE: ${{ secrets.PGSSLMODE }}
         run: python manage.py importar_propiedades
+
+      - name: Reconstruir índice de Elasticsearch
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGSSLMODE: ${{ secrets.PGSSLMODE }}
+          ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
+          ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
+        run: python manage.py reconstruir_indice
