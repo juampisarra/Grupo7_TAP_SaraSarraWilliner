@@ -158,6 +158,14 @@ class CombinacionTests(TestCase):
         respuesta = self.client.get("/propiedades/?q=cochera")
         self.assertEqual(list(respuesta.context["propiedades"]), [self.c, self.a])
 
+    @patch("propiedades.views.buscar_ids", return_value=[])
+    def test_formulario_muestra_y_conserva_el_texto_buscado(self, buscar):
+        respuesta = self.client.get("/propiedades/?operacion=venta&q=cochera")
+        self.assertContains(respuesta, 'type="search"')
+        self.assertContains(respuesta, 'name="q"')
+        self.assertContains(respuesta, 'value="cochera"')
+        buscar.assert_called_once_with("cochera")
+
     @patch("propiedades.views.buscar_ids", side_effect=BusquedaNoDisponible("Servicio no disponible"))
     def test_caida_de_elasticsearch_no_se_presenta_como_busqueda_vacia(self, buscar):
         self.assertEqual(self.client.get("/propiedades/?q=cochera").status_code, 503)

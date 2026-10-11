@@ -8,7 +8,6 @@
     <h1>Propiedades</h1>
 
     <form method="get">
-        {% if texto_busqueda %}<input type="hidden" name="q" value="{{ texto_busqueda }}">{% endif %}
         {% for campo, valor in filtros_geograficos.items %}
             <input type="hidden" name="{{ campo }}" value="{{ valor }}">
         {% endfor %}
@@ -33,7 +32,16 @@
             </option>
         </select>
 
-        
+        <label for="busqueda">Buscar:</label>
+        <input
+            id="busqueda"
+            name="q"
+            type="search"
+            value="{{ texto_busqueda }}"
+            maxlength="300"
+            placeholder="Ej.: departamento con cochera"
+        >
+        <button type="submit">Buscar</button>
     </form>
 
     <p>{{ propiedades|length }} resultados</p>
