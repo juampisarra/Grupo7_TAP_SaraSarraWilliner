@@ -57,6 +57,28 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Publicación autorizada — 12 de octubre de 2026
+
+El usuario autorizó explícitamente al agente a hacer el commit, push a `main` y ejecutar el workflow para publicar Gaggiotti y la tolerancia por fuente. Esta autorización reemplaza, para esta etapa, el acuerdo anterior de que el usuario haría el push. Comprobar después el resultado en Actions, Supabase, Elasticsearch y el sitio público antes de marcar la integración como desplegada.
+
+### Gaggiotti: tercera fuente implementada localmente — 11 de octubre de 2026
+
+El equipo eligió Gaggiotti como tercera inmobiliaria. `AdaptadorGaggiotti` está registrado como `gaggiotti` y guarda procedencia `Gaggiotti`, usando el contrato, importador y persistencia comunes. Su web utiliza un servicio JSON público, distinto de Tokko: `POST /api/Property/Search` realiza búsquedas de solo lectura y devuelve fichas completas paginadas. Se reutilizan dentro de cada instancia después de completar el listado; no se vuelve a pedir cada ficha por HTTP. La consulta directa de detalle sin listado previo conserva GET como respaldo. No necesita migraciones, dependencias, variables ni Secrets nuevos. Ver [implementación y publicación](docs/gaggiotti.md).
+
+Se conservan precios/monedas separados por operación, cero explícito y cantidades desconocidas en NULL. Se respeta `webPrice` y se toma el primer precio publicado de cada operación como el frontend original, sin conversiones. Ciudad/provincia provienen de la jerarquía explícita; no se confunde departamento con ciudad. Sus marcadores no garantizan precisión: `ubicacion_aproximada=NULL`, radio nulo y filtros espaciales con `incluir_aproximadas=1`. No se extrapola la decisión particular sobre Avantix. La geografía sigue exclusivamente en PostGIS.
+
+El relevamiento real obtuvo 264 avisos de venta y 46 de alquiler, cuatro compartidos: 306 únicos. La primera ingesta efímera guardó 306 y verificó 278 fichas; 28 consultas de detalle recibieron HTTP 502. Después de eliminar esas consultas duplicadas, la versión final se validó reproduciendo las 17 respuestas de listado capturadas: 306 altas con detalles y coordenadas, cero errores y 305 ciudades explícitas. La repetición actualizó 306 sin altas ni duplicados. Todos pasaron `full_clean` y serialización al documento de Elasticsearch. Después de otro 502 transitorio, la última extracción en vivo de la versión optimizada obtuvo nuevamente ambas operaciones y parseó los 306 detalles sin errores ni GET de fichas. Esa última extracción no escribió datos; no confundirla con la prueba separada de persistencia mediante respuestas capturadas.
+
+Suite final: 117 pruebas, 116 aprobadas y una integración PostGIS omitida con SQLite. No se modificaron Supabase, Elasticsearch ni la base SQLite local; las bases de prueba se destruyeron. Gaggiotti y la tolerancia por fuente siguen pendientes de push y primera ejecución productiva del workflow. Brega y Avantix mantienen el despliegue confirmado anteriormente.
+
+### Tolerancia a fallos por fuente — 11 de octubre de 2026
+
+Implementada localmente por solicitud del equipo, pendiente de push y comprobación en Actions. `importar_propiedades` aísla excepciones de cada fuente (incluida su inicialización), informa nombre/tipo/causa, continúa con las restantes y enumera completadas/fallidas. Conserva escrituras previas; no captura `KeyboardInterrupt` ni `SystemExit`. Los errores recuperables de fichas individuales mantienen su conteo y comportamiento anteriores.
+
+Salida `0`: todas completadas; `3`: algunas completadas y algunas fallidas; `1`: ninguna completada. El workflow conserva el fallo del paso de ingesta y reconstruye únicamente con código `0` o `3`, sin cancelación. Así incorpora datos guardados aunque exista un fallo parcial y el job sigue fallido para avisarlo. Ante fallo total o de preparación omite reconstrucción. No hay reintentos nuevos ni aislamiento transaccional de una fuente completa. Ver [operación, recuperación y pruebas](docs/ingesta.md).
+
+Validación: 96 pruebas descubiertas, 95 aprobadas y una integración PostGIS omitida con SQLite. Se verificó preservación de datos, repetición sin duplicados, fuente individual/alias, interrupciones y código de salida. El script Bash del workflow se probó con salidas simuladas, sin ingesta real ni cambios en Supabase/Elastic. No requiere migraciones ni nuevos Secrets.
+
 ### Integración de Avantix desplegada — 11 de octubre de 2026
 
 Avantix está implementada y registrada como segunda fuente mediante `AdaptadorAvantix`. Brega y Avantix reutilizan parsers comunes de Tokko para listados y campos generales de ficha; la configuración de URLs y la interpretación geográfica permanecen separadas por fuente. El comando específico es `python manage.py importar_propiedades avantix` y el comando sin argumentos recorre ambas fuentes; el workflow existente la incorporó sin cambios ni Secrets adicionales.
@@ -126,8 +148,8 @@ Al actualizar este contexto, el código contiene:
 - Una restricción única por `(fuente, identificador_fuente)` y persistencia común con `update_or_create` en `propiedades/ingesta.py`.
 - Un scraper Brega en `propiedades/scraping/brega.py` que consulta `/Venta` y `/Alquiler` con Requests y Beautiful Soup, recorre páginas con `p`, evita identificadores repetidos y termina ante un lote vacío o sin identificadores nuevos. Tiene un límite de seguridad de 50 páginas, timeout de 15 segundos y pausas de 0,5 segundos; no tiene reintentos implementados.
 - Normalización básica de precios, monedas, tipos y operaciones en `propiedades/scraping/normalizacion.py`. El contrato `PublicacionNormalizada` y el protocolo `AdaptadorFuente` están en `propiedades/scraping/contratos.py`; `AdaptadorBrega` traduce la extracción existente a ese contrato.
-- El flujo común `importar_fuente` en `propiedades/ingesta.py` consolida operaciones/precios, consulta una ficha completa por aviso en cada ingesta, gestiona coordenadas y persiste. Las fuentes se registran en `propiedades/scraping/fuentes.py`; están registradas Brega y Avantix. Ya no se omiten fichas por tener dormitorios verificados: también deben refrescarse descripción y características. Si falla la ficha se conservan los detalles guardados; la ausencia de un dato nuevo (None) tampoco borra el anterior. La detección de datos retirados de una ficha queda pendiente.
-- `python manage.py importar_propiedades brega` y `python manage.py importar_propiedades avantix` importan una fuente específica; el mismo comando sin argumentos importa, en orden alfabético, todas las fuentes registradas. `python manage.py importar_brega` se conserva como alias compatible.
+- El flujo común `importar_fuente` en `propiedades/ingesta.py` consolida operaciones/precios, obtiene una ficha completa por aviso en cada ingesta, gestiona coordenadas y persiste. Las fuentes se registran en `propiedades/scraping/fuentes.py`: Brega, Avantix y Gaggiotti. Esta última reutiliza la ficha completa recibida en el listado actual. Ya no se omiten fichas por tener dormitorios verificados: también deben refrescarse descripción y características. Si falla la ficha se conservan los detalles guardados; la ausencia de un dato nuevo (None) tampoco borra el anterior. La detección de datos retirados de una ficha queda pendiente.
+- `python manage.py importar_propiedades brega`, `python manage.py importar_propiedades avantix` y `python manage.py importar_propiedades gaggiotti` importan una fuente específica; el mismo comando sin argumentos importa todas en orden `avantix`, `brega`, `gaggiotti`. `python manage.py importar_brega` se conserva como alias compatible.
 - Geocodificación experimental con geopy/Nominatim en `propiedades/scraping/geocoding.py`, limitada a direcciones con ciudad explícita y con separación mínima de 1,5 segundos entre consultas por proceso. Sin ciudad no se consulta el proveedor: no se supone Rafaela ni se deducen localidades por nombres de calles.
 - Si cambia dirección, ciudad, provincia o zona, se invalidan ambas coordenadas anteriores y se intenta resolver la nueva ubicación solo si hay ciudad explícita. Si no se encuentra o el proveedor falla, quedan vacías; los errores del proveedor se registran. Un par incompleto también se invalida y se intenta completar. Un par completo se reutiliza si la ubicación no cambió, incluso si alguna coordenada vale cero.
 - Brega extrae el título Open Graph, descripción de `#prop-desc` (limpiando HTML escapado, con respaldo Open Graph), características de `.ficha_ul`, cantidades de `.ficha_detalle_item`/`#lista_informacion_basica` y ubicación textual. El rótulo `Ubicación` puede ser localidad o barrio: se guarda como `zona`, nunca se transforma automáticamente en ciudad. Ciudad/provincia solo se extraen si aparecen con esos rótulos explícitos.
@@ -142,7 +164,7 @@ Al actualizar este contexto, el código contiene:
 
 La conexión y las migraciones hasta `0011` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
 
-PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. Elasticsearch, el formulario textual mínimo, GitHub Actions, Brega y Avantix están desplegados y verificados. Supabase contiene 275 registros de Avantix en la comprobación posterior al despliegue. Todavía no hay una tercera fuente, filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
+PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. Elasticsearch, el formulario textual mínimo, GitHub Actions, Brega y Avantix están desplegados y verificados. Supabase contiene 275 registros de Avantix en la comprobación posterior al despliegue. Gaggiotti y la tolerancia por fuente están implementadas localmente, pendientes de publicación. Todavía no hay filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
 
 ```powershell
 $env:DB_ENGINE = "sqlite"
@@ -156,14 +178,15 @@ El ejemplo supone que no había una variable de sistema `DB_ENGINE` previamente 
 
 Para instalar dependencias, configurar `.env`, conectar Supabase y conservar datos de SQLite, seguir [docs/base_de_datos.md](docs/base_de_datos.md). La selección es `DB_ENGINE=sqlite` (predeterminado) o `DB_ENGINE=postgresql` con `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` y `PGSSLMODE`. PostgreSQL usa TLS por defecto. No se guardan credenciales en el código ni se requiere una API key de Supabase. Ejecutar migraciones antes de la ingesta. La exportación/importación documentada está destinada a un PostgreSQL vacío, no a mezclar bases con publicaciones existentes. En Windows usar `python.exe -X utf8` para `dumpdata`/`loaddata` y conservar correctamente los acentos.
 
-Actualmente se scrapean publicaciones de Brega y Avantix. Con el entorno virtual activado, los comandos específicos son `python manage.py importar_propiedades brega` y `python manage.py importar_propiedades avantix`: `importar_propiedades` lleva un guion bajo y la clave de fuente se escribe en minúsculas. Desde la raíz del proyecto, en PowerShell, también se puede usar directamente el Python del entorno virtual:
+Están registradas Brega, Avantix y Gaggiotti; las dos primeras ya se ingirieron en producción y Gaggiotti está probada localmente. `importar_propiedades` lleva un guion bajo y la clave de fuente se escribe en minúsculas. Desde la raíz del proyecto, en PowerShell:
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
 .\.venv\Scripts\python.exe manage.py importar_propiedades avantix
+.\.venv\Scripts\python.exe manage.py importar_propiedades gaggiotti
 ```
 
-El nombre de fuente es opcional: si se indica, debe ser una fuente registrada y no una URL; si se omite, el comando importa todas las fuentes registradas en un solo proceso. La forma específica es `python manage.py importar_propiedades <fuente>`, reemplazando `<fuente>` por `brega` o `avantix`, sin los signos `<` y `>`. Escribir otro nombre no agrega soporte automáticamente. Reutilizar el importador y la persistencia existentes.
+El nombre de fuente es opcional: si se indica, debe ser una fuente registrada y no una URL; si se omite, el comando importa todas las fuentes registradas en un solo proceso. La forma específica es `python manage.py importar_propiedades <fuente>`, reemplazando `<fuente>` por `brega`, `avantix` o `gaggiotti`, sin los signos `<` y `>`. Escribir otro nombre no agrega soporte automáticamente. Reutilizar el importador y la persistencia existentes.
 
 Para completar opcionalmente ciudad/provincia faltantes desde las coordenadas, usando la caché persistente:
 
@@ -179,7 +202,7 @@ El alias `importar_brega` también admite `--completar-ubicacion`. Sin esa opci�
 Job Python en GitHub Actions (semanal y manual)
   ├─ Scraper/adaptador Brega (disponible)
   ├─ Scraper/adaptador Avantix (desplegado)
-  └─ Scraper/adaptador inmobiliaria C (pendiente)
+  └─ Scraper/adaptador Gaggiotti (local, pendiente de publicar)
                    │
                    ▼
              Normalización común
@@ -271,10 +294,11 @@ El frontend futuro permitirá seleccionar un punto/radio o dibujar un área en u
 
 ## Fuentes exploradas y reutilización
 
-Brega y Avantix tienen scrapers registrados, desplegados y validados con datos en Supabase y búsquedas públicas. La tercera fuente todavía no está elegida; se mantiene la propuesta de incorporar otra plataforma para demostrar la extensión con un adaptador distinto.
+Brega y Avantix tienen scrapers registrados, desplegados y validados con datos en Supabase y búsquedas públicas. Gaggiotti fue elegida e implementada como tercera fuente, con un adaptador independiente para su servicio JSON público; reutiliza el flujo común y está pendiente de publicación. Ver [Gaggiotti](docs/gaggiotti.md).
 
 - Brega: https://www.bregainmobiliaria.ar
 - Avantix: https://www.avantix.ar
+- Gaggiotti: https://www.gaggiotti.com.ar
 
 La exploración mediante solicitudes directas confirmó en ambos sitios un patrón compatible con Tokko: elementos `li[prop-id]`, clases `.prop-desc-dir`, `.prop-desc-tipo-ub` y `.prop-valor-nro`, un primer lote en el HTML y carga adicional mediante `?p=2`, con lotes de 20 en Avantix y marcador `--NoMoreProperties--` al finalizar.
 
@@ -300,14 +324,14 @@ El despliegue básico, health, PostGIS, Elasticsearch público, el formulario te
 1. Parsers comunes de listado y ficha, y recorrido común de paginación extraídos sin alterar el comportamiento verificado de Brega; cada fuente conserva sus URLs, solicitudes y configuración.
 2. `AdaptadorAvantix` implementado y registrado, con pruebas de listados, operaciones dobles, precios, detalles, registro y terminación/límite de páginas.
 3. Extracción pública, ingesta efímera local, ingesta real en Supabase y reconstrucción de Elasticsearch validadas mediante el workflow.
-4. Identidad por fuente y resultados públicos de ambas inmobiliarias comprobados; el comportamiento operativo ante el fallo completo de una fuente sigue pendiente.
+4. Identidad por fuente y resultados públicos de ambas inmobiliarias comprobados. La tolerancia al fallo completo de una fuente y la integración de Gaggiotti están implementadas y probadas localmente, pendientes de publicar y comprobar en Actions.
 
 El despliegue de la segunda fuente comprueba la extensibilidad del importador común; no completa las features pendientes ni requiere definir una nueva interfaz.
 
 ## Próximos cinco pasos acordados
 
-1. **Tolerancia a fallos por fuente:** aislar errores de listado o paginación, continuar con las demás inmobiliarias, registrar cuáles fallaron y definir un resultado de GitHub Actions que avise del fallo parcial sin descartar la ingesta ni la indexación exitosas.
-2. **Tercera inmobiliaria:** elegirla e integrarla mediante el contrato y los parsers comunes cuando corresponda, sin copiar el importador ni mezclar lógica específica entre fuentes.
+1. **Tolerancia a fallos por fuente:** implementada localmente y probada; falta publicar y validar el workflow. Continúa con las fuentes restantes y reconstruye ante éxito parcial, manteniendo el job fallido. Ver [ingesta](docs/ingesta.md).
+2. **Tercera inmobiliaria:** Gaggiotti elegida, implementada y probada localmente mediante el contrato común; falta publicar y comprobar su primera carga en Supabase y búsqueda pública. Ver [Gaggiotti](docs/gaggiotti.md).
 3. **Filtros estructurados:** incorporar tipo, dormitorios y precio, manteniendo precio separado por operación y exigiendo moneda para comparaciones coherentes.
 4. **Paginación y API JSON:** definir un contrato único que combine el orden de Elasticsearch con filtros PostgreSQL/PostGIS y permita al futuro frontend consumir resultados paginados.
 5. **Frontend y mapa:** definir e implementar la interfaz después de completar el backend anterior; el mapa debe enviar geometrías o parámetros al backend y no calcular distancias ni consultar directamente Supabase o Elasticsearch.
@@ -316,8 +340,8 @@ En paralelo con el primer paso, comprobar el historial del ping y el vencimiento
 
 ## Decisiones de implementación pendientes
 
-- Para la tolerancia a fallos por fuente, definir el estado de salida y la secuencia del workflow para que Elasticsearch incorpore los datos exitosos y GitHub Actions igualmente notifique el fallo parcial.
-- Elegir la tercera inmobiliaria; Avantix ya está desplegada y validada contra Supabase, Elasticsearch y la búsqueda pública.
+- Publicar y comprobar la tolerancia por fuente implementada. Estado de salida y secuencia del workflow ya definidos en [ingesta](docs/ingesta.md).
+- Publicar Gaggiotti y comprobar su primera ingesta productiva, reconstrucción del índice y resultados públicos. La elección e implementación ya están resueltas.
 - Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; política de intersección de áreas de incertidumbre, polígonos arbitrarios y futuras ampliaciones del esquema común; la representación espacial y los filtros básicos ya están implementados. El proyecto Supabase, conexión y migraciones hasta `0011` están verificados.
 - [X] Workflow y frecuencia en GitHub Actions: lunes a las 00:00 de Argentina, ejecución manual, Secrets, exclusión de simultaneidad, comprobación previa de Elastic e indexación completa posterior verificadas.
 - [ ] Automatización pendiente: recuperación incremental y política de limpieza de versiones físicas anteriores del índice.

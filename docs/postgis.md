@@ -41,7 +41,9 @@ Las coordenadas son ejemplos de consulta, no ubicaciones asignadas a avisos. Los
 
 ## Ubicaciones aproximadas
 
-Por defecto, los filtros espaciales solo incluyen registros con `ubicacion_aproximada=False`. True representa un área aproximada; NULL indica precisión desconocida. En la instantánea actualmente desplegada Brega aporta 172 áreas aproximadas y todavía no hay datos de Avantix, por lo que un filtro espacial sin `incluir_aproximadas=1` puede devolver cero resultados. Al publicar e ingerir Avantix, sus marcadores validados se guardarán como `False` y entrarán en el filtro predeterminado. Esa precisión es una decisión del equipo: Avantix publica el punto, pero no lo declara expresamente exacto.
+Por defecto, los filtros espaciales solo incluyen registros con `ubicacion_aproximada=False`. True representa un área aproximada; NULL indica precisión desconocida. Brega publica áreas aproximadas. Avantix ya está desplegada y sus marcadores validados se guardan como `False`, por lo que entran en el filtro predeterminado. Esa precisión es una decisión del equipo: Avantix publica el punto, pero no lo declara expresamente exacto.
+
+Gaggiotti, implementada localmente y pendiente de publicación, aporta puntos sin garantía de precisión ni radio. Se guardan con `ubicacion_aproximada=NULL` y requieren `incluir_aproximadas=1` para participar en una consulta espacial. No se extrapola la decisión particular de Avantix; ver [datos de Gaggiotti](gaggiotti.md#coordenadas-y-precisión).
 
 `incluir_aproximadas=1` habilita también puntos aproximados y de precisión desconocida. **Se filtra el centro publicado, no la extensión del círculo ni la ubicación real garantizada del inmueble.** Un centro dentro puede corresponder a una propiedad fuera, y viceversa. El listado muestra esta advertencia y la precisión disponible. El radio publicado se conserva, pero no se interpreta como distancia al punto buscado. La política futura para intersección o cobertura de áreas de incertidumbre sigue pendiente.
 

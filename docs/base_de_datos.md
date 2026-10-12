@@ -97,7 +97,7 @@ Si no se quieren trasladar datos, omitir la importación y ejecutar directamente
 .\.venv\Scripts\python.exe manage.py importar_propiedades
 ```
 
-El comando sin argumentos importa todas las fuentes registradas. Para aislar una sola, usar `importar_propiedades brega` o `importar_propiedades avantix`.
+El comando sin argumentos importa todas las fuentes registradas. Para aislar una sola, usar `importar_propiedades brega`, `importar_propiedades avantix` o `importar_propiedades gaggiotti`.
 
 ## Pruebas
 
@@ -126,7 +126,11 @@ Después de actualizar el código, aplicar las migraciones y repetir la ingesta 
 
 Las fichas verificadas de Avantix muestran un marcador mediante Google Maps y no declaran un radio. Por decisión confirmada del equipo, la integración trata ese marcador como exacto: lee únicamente el parámetro `q=latitud,longitud` del iframe dentro de `#ficha_mapa`, valida ambos valores y guarda `ubicacion_aproximada=False` con `radio_ubicacion_m=NULL`. La fuente no garantiza expresamente esa precisión; es una clasificación elegida para el proyecto.
 
-La ingesta local efímera del 11 de octubre procesó 275 publicaciones Avantix antes de habilitar este lector y, por eso, no guardó coordenadas. Una comprobación posterior sobre una ficha pública real obtuvo `-31.250540799413834, -61.49395149727678`, `ubicacion_aproximada=False` y radio nulo. La validación no modificó Supabase; la primera carga productiva y su revisión pública siguen pendientes.
+La ingesta local efímera del 11 de octubre procesó 275 publicaciones Avantix antes de habilitar este lector y, por eso, no guardó coordenadas. Una comprobación posterior sobre una ficha pública real obtuvo `-31.250540799413834, -61.49395149727678`, `ubicacion_aproximada=False` y radio nulo. Después del push, el equipo confirmó 275 registros de Avantix en Supabase, coordenadas en las filas observadas y resultados públicos tras reconstruir el índice.
+
+### Gaggiotti
+
+Tercera fuente elegida por el equipo e implementada localmente. `importar_propiedades gaggiotti` consulta el servicio público que usa su web y reutiliza las fichas completas recibidas en los listados. Comparte el modelo y la persistencia existentes: no requiere migraciones ni credenciales adicionales. Conserva precios por operación y moneda, respeta precios ocultos y obtiene ciudad/provincia de la jerarquía explícita de la fuente. Guarda coordenadas válidas con precisión desconocida (`ubicacion_aproximada=NULL`) y radio nulo. Su primera carga productiva queda pendiente del push y del workflow; ver [contrato, validación y publicación](gaggiotti.md).
 
 ## Completar ciudad/provincia opcionalmente
 

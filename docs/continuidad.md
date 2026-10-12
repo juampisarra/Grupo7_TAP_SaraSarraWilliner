@@ -1,6 +1,8 @@
 # Continuidad del proyecto y entrega al compañero
 
-Estado al 11 de octubre de 2026. Elasticsearch y GitHub Actions ya están publicados y verificados. Esta guía conserva el procedimiento de configuración como referencia de recuperación y registra la publicación pendiente de Avantix. El equipo indicó que la evaluación es el martes 13 de octubre.
+Estado al 11 de octubre de 2026. Elasticsearch, GitHub Actions y Avantix ya están publicados y verificados por el equipo. Esta guía conserva el procedimiento de configuración como referencia de recuperación. Gaggiotti y la tolerancia por fuente están implementadas y probadas localmente, pendientes de publicar; ver [Gaggiotti](gaggiotti.md) e [ingesta](ingesta.md). El equipo indicó que la evaluación es el martes 13 de octubre.
+
+**Para publicar esta etapa:** hacer commit/push del código, comprobar el workflow nuevo en GitHub y ejecutar **Ingesta Semanal de Propiedades** manualmente. El comando general incorpora Gaggiotti automáticamente. Revisar su resumen, la reconstrucción del índice, filas con `fuente=Gaggiotti` en Supabase y búsquedas/enlaces públicos. No hay variables, Secrets, dependencias ni migraciones nuevas; las instrucciones de configuración que siguen son referencias para quien todavía no tenga el entorno anterior.
 
 ## Estado comprobado
 
@@ -13,7 +15,8 @@ Estado al 11 de octubre de 2026. Elasticsearch y GitHub Actions ya están public
 | PostGIS | Instalado; almacenamiento espacial e índices GiST. Filtros por radio y rectángulo desplegados, mediante parámetros de URL. |
 | Elastic Cloud | Proyecto creado y conexión real comprobada. Alias `propiedades` cargado con 173 documentos desde Supabase. |
 | Django + Elasticsearch | Desplegado en Render; búsqueda por `q`, relevancia y formulario mínimo verificados públicamente. |
-| Scraper | Brega desplegada. Avantix implementada, registrada y validada localmente con 275 publicaciones efímeras; falta publicar y validar su carga en Supabase. |
+| Scraper | Brega y Avantix desplegadas; el equipo confirmó 275 registros de Avantix en Supabase y búsquedas públicas de ambas fuentes. |
+| Gaggiotti | Tercera fuente registrada y probada localmente; pendiente de primera ingesta productiva después del push. |
 | cron-job.org | Job creado; falta comprobar una ejecución programada exitosa en su historial. |
 | GitHub Actions | Workflow general, Secrets, concurrencia, ejecución manual y programación semanal verificados. Reconstruye Elasticsearch después de la ingesta. |
 
@@ -46,7 +49,7 @@ Si desea comprobar su entorno local, con `DB_ENGINE=postgresql` apuntando a la S
 .\.venv\Scripts\python.exe -X utf8 manage.py buscar_propiedades "departamento con cochera" --limite 5
 ```
 
-No necesita reconstruir el índice para este despliegue: ya está cargado.
+El índice existente permite probar el entorno anterior. Para incorporar Gaggiotti hay que ejecutar la nueva ingesta y reconstrucción, preferentemente mediante el workflow; no basta con publicar Django.
 
 ## 2. Configurar Render desde la cuenta propietaria
 
@@ -82,7 +85,7 @@ Abrir estas URLs después del despliegue:
 
 Las cantidades pueden cambiar al actualizar datos. Para verificar Elasticsearch, comprobar también que aparezca el texto de resultados por relevancia y que cambiar venta/alquiler conserve `q`. Un HTTP 200 por sí solo no prueba la integración: la versión anterior puede ignorar `q` y mostrar todos los avisos.
 
-Hay un formulario textual mínimo para probar `q`, pero no un frontend definitivo ni un mapa. La geografía se prueba por parámetros de URL en el listado existente, de acuerdo con la prioridad de backend. Por defecto los filtros geográficos solo aceptan `ubicacion_aproximada=False`; los datos desplegados actuales de Brega son aproximados. `incluir_aproximadas=1` permite consultar sus centros publicados, sin garantizar la ubicación real dentro del radio. Cuando Avantix se despliegue y se ingiera, sus puntos entrarán en el filtro predeterminado porque el equipo decidió guardarlos como exactos y sin radio, aunque la fuente no declare esa precisión. Ver [precisión y parámetros](postgis.md).
+Hay un formulario textual mínimo para probar `q`, pero no un frontend definitivo ni un mapa. La geografía se prueba por parámetros de URL en el listado existente, de acuerdo con la prioridad de backend. Por defecto los filtros geográficos solo aceptan `ubicacion_aproximada=False`; los datos de Brega son aproximados. `incluir_aproximadas=1` permite consultar sus centros publicados, sin garantizar la ubicación real dentro del radio. Los puntos de Avantix entran en el filtro predeterminado porque el equipo decidió guardarlos como exactos y sin radio, aunque la fuente no declare esa precisión. Ver [precisión y parámetros](postgis.md).
 
 ## 4. Resolver problemas de publicación
 
@@ -112,19 +115,20 @@ GitHub Actions ya ejecuta semanalmente la ingesta general y reconstruye el índi
 .\.venv\Scripts\python.exe -X utf8 manage.py reconstruir_indice
 ```
 
-Para aislar una fuente se puede agregar `brega` o `avantix` al primer comando. Son dos pasos separados: ejecutar la reconstrucción después de comprobar que terminó la ingesta. Si falla Elasticsearch, los datos guardados en PostgreSQL se conservan; corregir el problema y reintentar la reconstrucción. Hasta completarla, las búsquedas textuales pueden reflejar el índice anterior. No es necesario redesplegar Render para publicar cambios de datos.
+Para aislar una fuente se puede agregar `brega`, `avantix` o `gaggiotti` al primer comando. Son dos pasos separados: ejecutar la reconstrucción después de comprobar que terminó la ingesta. Si falla Elasticsearch, los datos guardados en PostgreSQL se conservan; corregir el problema y reintentar la reconstrucción. Hasta completarla, las búsquedas textuales pueden reflejar el índice anterior. No es necesario redesplegar Render para publicar cambios de datos.
 
 La reconstrucción crea una versión nueva y cambia el alias tras validar la carga. Conserva versiones anteriores; no borrarlas sin identificar el índice activo. Evitar escrituras durante la reconstrucción. Ver [procedimiento y límites de recuperación](elasticsearch.md).
 
-El comando general procesa `avantix` antes que `brega`. Los errores de una ficha individual se aíslan, pero un fallo de listado o paginación todavía aborta la ejecución completa y evita la reconstrucción posterior. La tolerancia por fuente y la recuperación incremental siguen pendientes.
+El comando general procesa `avantix`, `brega` y `gaggiotti`, en ese orden. La nueva tolerancia por fuente, implementada localmente y pendiente de publicar, permite continuar después de una fuente fallida. Devuelve `3` ante éxito parcial y `1` si todas fallan. El workflow reconstruye con `0` o `3`, manteniendo el job fallido ante fallo parcial; con fallo total omite el índice. Los errores recuperables de fichas individuales mantienen su comportamiento anterior. Ver [operación y recuperación](ingesta.md).
 
 ## Trabajo que sigue
 
-1. **Publicar y validar Avantix:** hacer push/despliegue, ejecutar manualmente el workflow y comprobar identidad, conteos y búsquedas de ambas fuentes en Supabase, Elasticsearch y Render.
-2. **Cerrar la operación del despliegue:** comprobar historial del ping y vencimiento exacto de Elastic. La continuidad después de la prueba sigue pendiente.
-3. **Mejorar recuperación:** definir tolerancia por fuente, recuperación incremental y limpieza de versiones físicas anteriores. La reconstrucción completa automática ya existe.
-4. **Completar las fuentes:** elegir e implementar la tercera inmobiliaria y definir el tratamiento de avisos retirados.
-5. **Completar búsquedas del backend:** filtros de tipo y precio con moneda/operación, paginación y API; ampliar geografía a polígonos y definir el tratamiento de áreas aproximadas cuando corresponda.
-6. **Frontend y mapa:** definirlos e implementarlos después del backend. No están incluidos en esta etapa.
+1. **Publicar la tolerancia por fuente:** código y workflow listos y probados localmente. No requiere Secrets ni migraciones nuevas. Comprobar la próxima ejecución en Actions después del push.
+2. **Publicar Gaggiotti:** integración y pruebas locales completas. Ejecutar el workflow después del push y comprobar primera carga, reconstrucción y resultados públicos. Su servicio devolvió errores 502 durante la validación; si falla, el resumen identifica la fuente y se puede reejecutar cuando se recupere. Ver [validación y límites](gaggiotti.md).
+3. **Filtros estructurados:** agregar tipo, dormitorios y precio por operación/moneda.
+4. **Paginación y API JSON:** preparar el acceso del futuro frontend.
+5. **Frontend y mapa:** desarrollarlos después de completar el backend.
 
-La suite posterior a la integración local de Avantix descubrió 87 pruebas: 86 aprobadas y una integración PostGIS omitida al usar SQLite. También pasaron la comprobación de migraciones pendientes y dependencias. La ingesta efímera previa al lector geográfico procesó 275 publicaciones Avantix únicas, verificó 274 fichas y no modificó Supabase ni Elasticsearch; una prueba pública posterior confirmó la extracción del punto real como exacto y sin radio. Las pruebas reales de Elastic y PostGIS se describen en sus respectivas guías; la publicación de Avantix en Render queda pendiente.
+En paralelo quedan historial del ping, vencimiento/continuidad de Elastic, recuperación incremental, limpieza de versiones del índice y política de avisos retirados.
+
+La suite final descubrió 117 pruebas: 116 aprobadas y una integración PostGIS omitida al usar SQLite. No hay cambios de modelo pendientes. Gaggiotti se relevó con solicitudes públicas reales y su versión optimizada se verificó reproduciendo respuestas capturadas en una base efímera: 306 altas y una segunda carga de 306 actualizaciones sin duplicados. No se modificaron Supabase ni Elasticsearch. Las comprobaciones productivas de Avantix corresponden a la etapa anterior confirmada por el equipo. Ver [Gaggiotti](gaggiotti.md) y [validación de tolerancia](ingesta.md).

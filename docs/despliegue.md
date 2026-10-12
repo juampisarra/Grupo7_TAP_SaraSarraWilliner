@@ -1,6 +1,6 @@
 # Despliegue básico y continuidad
 
-Actualización del 11 de octubre: health, plantilla, PostGIS y Elasticsearch están desplegados; se verificaron los endpoints, la búsqueda pública y el formulario textual mínimo. GitHub Actions ejecutó correctamente la ingesta general y reconstrucción del índice. Avantix está integrada y validada localmente, pero falta publicar este código y comprobar su primera carga en Supabase/Elasticsearch. El ping de cron-job.org fue creado, con historial aún pendiente de comprobación.
+Actualización del 11 de octubre: health, plantilla, PostGIS y Elasticsearch están desplegados; se verificaron los endpoints, la búsqueda pública y el formulario textual mínimo. GitHub Actions ejecutó correctamente la ingesta general y reconstrucción del índice. El equipo confirmó Avantix en Supabase y en las búsquedas públicas. La nueva tolerancia por fuente está implementada localmente y pendiente de publicar; ver [ingesta](ingesta.md). El ping de cron-job.org fue creado, con historial aún pendiente de comprobación.
 
 Render ya tiene `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` y `ELASTICSEARCH_INDEX=propiedades` en **Environment**. Nunca subir `.env`. Ante una nueva configuración, copiar los valores sin comillas adicionales y verificar `/propiedades/?operacion=alquiler&q=departamento%20con%20cochera`. No ejecutar reconstrucción en el build ni desde una visita; la actualización corresponde al workflow o a un comando de mantenimiento explícito. Ver [comandos y próximos pasos](elasticsearch.md). Sin las variables, el listado normal sigue funcionando y las búsquedas textuales devuelven 503.
 
@@ -112,11 +112,14 @@ El sitio consulta las propiedades ya guardadas en Supabase. Una visita o un camb
 .\.venv\Scripts\python.exe manage.py importar_propiedades
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
 .\.venv\Scripts\python.exe manage.py importar_propiedades avantix
+.\.venv\Scripts\python.exe manage.py importar_propiedades gaggiotti
 ```
 
 Después de una ingesta manual, ejecutar `python manage.py reconstruir_indice` para actualizar las búsquedas textuales. El workflow ya realiza ambos pasos automáticamente y conserva el alias anterior si falla la reconstrucción. No hace falta volver a desplegar para ver cambios de datos. `--completar-ubicacion` sigue siendo opcional; consultar [la guía de bases y enriquecimiento](base_de_datos.md). Evitar ejecuciones simultáneas que usen Nominatim y escrituras durante una reconstrucción.
 
-El comando general y GitHub Actions ya están implementados y verificados. Brega está operativa en Supabase; Avantix está registrada y validada en una base SQLite efímera, pero todavía falta publicar este código y ejecutar/validar su primera carga contra Supabase y Elasticsearch. Al desplegarla no requiere Secrets nuevos. Sus marcadores de Google Maps se guardarán como puntos exactos sin radio por decisión del equipo, de modo que entrarán en los filtros espaciales predeterminados; la fuente no garantiza expresamente esa precisión. Un fallo de listado o paginación de una fuente todavía aborta el comando general; los errores de fichas individuales se registran y la ingesta continúa. PostGIS, Elasticsearch y los filtros por radio/rectángulo están desplegados. La tercera inmobiliaria, recuperación incremental, filtros de tipo/precio, API, frontend definitivo y mapa siguen pendientes.
+El comando general y GitHub Actions ya están implementados y verificados con Brega y Avantix. Gaggiotti está integrada y probada localmente como tercera fuente; el comando general la incluye automáticamente después del push. No requiere migraciones, dependencias, variables ni Secrets nuevos. Ver [datos, validación y publicación](gaggiotti.md).
+
+La nueva tolerancia por fuente continúa con las restantes ante un fallo, informa el resultado final y permite reconstruir el índice ante éxito parcial, conservando el job fallido. Si ninguna fuente termina bien, omite reconstrucción. Esta mejora requiere publicar el código y workflow nuevos; ver [códigos de salida y recuperación](ingesta.md). PostGIS, Elasticsearch y los filtros por radio/rectángulo están desplegados. Recuperación incremental, filtros de tipo/dormitorios/precio, API, frontend definitivo y mapa siguen pendientes.
 
 ## Elasticsearch en Elastic Cloud
 
@@ -124,4 +127,4 @@ El 10 de octubre se completaron creación del servicio, conexión desde Django, 
 
 La búsqueda acepta `q` en `/propiedades/`, dispone de un formulario mínimo, devuelve resultados ordenados por relevancia y conserva filtros de operación y PostGIS. Supabase mantiene la autoridad sobre los datos. Sin `q`, el listado no consulta Elasticsearch. No hay mapa ni frontend definitivo.
 
-El siguiente paso es publicar la integración de Avantix, ejecutar manualmente el workflow y comprobar datos de ambas fuentes en Supabase, Elasticsearch y `/propiedades/`. Luego corresponde definir tolerancia ante fallos completos de una fuente, recuperación incremental y limpieza de versiones físicas. Registrar también la fecha/hora exactas de vencimiento de Elastic y su continuidad posterior. La lista ordenada está en [trabajo que sigue](continuidad.md#trabajo-que-sigue).
+El siguiente paso es publicar Gaggiotti y la tolerancia por fuente, ejecutar el workflow actualizado y comprobar la primera carga productiva de la tercera fuente y su búsqueda pública. Después corresponden filtros estructurados, paginación/API y finalmente frontend/mapa. Quedan además recuperación incremental y limpieza de versiones físicas. Registrar también la fecha/hora exactas de vencimiento de Elastic y su continuidad posterior. La lista ordenada está en [trabajo que sigue](continuidad.md#trabajo-que-sigue).

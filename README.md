@@ -1,6 +1,6 @@
 # Grupo7_TAP_SaraSarraWilliner
 
-Actualización del 11 de octubre: `/health/`, PostGIS, Elasticsearch y el formulario textual mínimo están desplegados. GitHub Actions ejecuta semanalmente la ingesta general y la reconstrucción completa del índice; su ejecución manual ya fue verificada. Avantix está integrada y validada localmente como segunda fuente, incluido su punto de Google Maps tratado como exacto por decisión del equipo, pero todavía falta publicarla e ingerirla en Supabase. El frontend definitivo y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
+Actualización del 11 de octubre: `/health/`, PostGIS, Elasticsearch y el formulario textual mínimo están desplegados. GitHub Actions ejecuta semanalmente la ingesta general y la reconstrucción completa del índice; su ejecución manual ya fue verificada. Avantix está desplegada como segunda fuente y el equipo confirmó 275 publicaciones en Supabase y búsquedas públicas de ambas inmobiliarias. **Gaggiotti está integrada como tercera fuente y probada localmente**, junto con la tolerancia a fallos por fuente; falta publicar estos cambios y comprobar su primera carga productiva. Ver [Gaggiotti](docs/gaggiotti.md) y [operación y recuperación de ingesta](docs/ingesta.md). El frontend definitivo y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
 
 **Para el compañero que administra Render:** seguir la [guía de continuidad](docs/continuidad.md), con las variables que debe agregar, pasos de publicación, URLs de prueba y pendientes. El usuario hará el push; `.env` no se sube ni actualiza Render automáticamente.
 
@@ -53,7 +53,7 @@ Frontend futuro + mapa → Backend Python
                         → Resultados al frontend
 ```
 
-El flujo guarda primero en PostgreSQL y después reconstruye Elasticsearch. La ingesta crea o actualiza publicaciones sin duplicarlas por fuente e identificador; el workflow ejecuta `reconstruir_indice` al finalizar. En una ejecución manual ambos comandos siguen siendo pasos separados. La recuperación incremental y el aislamiento ante el fallo completo de una fuente siguen pendientes.
+El flujo guarda primero en PostgreSQL y después reconstruye Elasticsearch. La ingesta crea o actualiza publicaciones sin duplicarlas por fuente e identificador. La nueva tolerancia por fuente continúa con las demás ante un fallo y devuelve un resumen final: salida `0` si todas terminan, `3` ante éxito parcial y `1` si todas fallan. El workflow reconstruye con `0` o `3`, conservando el estado fallido del job ante fallo parcial; omite el índice ante fallo total. En una ejecución manual ambos comandos siguen siendo pasos separados. La recuperación incremental sigue pendiente. Ver [detalles y límites](docs/ingesta.md).
 
 Las búsquedas consultan la información guardada y no ejecutan scraping. El backend coordina Elasticsearch para texto/relevancia, PostgreSQL para filtros estructurados y PostGIS para ubicación; el frontend no accede directamente a esos servicios.
 
@@ -68,7 +68,8 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Modelo `Propiedad` con procedencia, dirección, tipo, dormitorios, venta/alquiler, precios y monedas por operación, URL original y fecha de actualización; unicidad por `(fuente, identificador_fuente)`.
 - Título, descripción, características como texto, ciudad/provincia/zona, ambientes y baños opcionales, agregados en la migración `0008`. Las amenidades no necesitan una columna individual.
 - Scrapers Brega y Avantix con Requests y Beautiful Soup, paginación y normalización común Tokko.
-- Flujo común en `propiedades/ingesta.py`, contrato `PublicacionNormalizada` y ambos adaptadores registrados. `importar_propiedades` procesa todas las fuentes; también acepta `brega` o `avantix`. `importar_brega` es un alias compatible.
+- Adaptador Gaggiotti para su servicio JSON público: listados paginados con fichas completas, normalización al modelo común y precios separados por operación, respetando los precios ocultos. Coordenadas con precisión desconocida: los filtros espaciales requieren `incluir_aproximadas=1`. Ver [contrato y validación](docs/gaggiotti.md).
+- Flujo común en `propiedades/ingesta.py`, contrato `PublicacionNormalizada` y tres adaptadores registrados. `importar_propiedades` procesa todas las fuentes; también acepta `brega`, `avantix` o `gaggiotti`. `importar_brega` es un alias compatible.
 - Brega consulta la ficha completa en cada ingesta y obtiene texto, características y cantidades. Los errores de ficha conservan los detalles guardados. El rótulo ambiguo `Ubicación` se guarda como zona, sin asumir ciudad.
 - Brega extrae coordenadas de los círculos publicados en el mapa de la ficha y conserva `ubicacion_aproximada` y `radio_ubicacion_m` (migración `0009`). No requiere ciudad para guardar coordenadas de la fuente. Esas posiciones representan áreas aproximadas, no direcciones exactas.
 - Avantix extrae el punto del iframe de Google Maps, lo valida y lo conserva con `ubicacion_aproximada=False` y radio nulo. Esta clasificación como exacta es una decisión del equipo; la fuente no declara expresamente su precisión.
@@ -76,7 +77,7 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler, búsqueda textual mínima por relevancia y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0011` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones de Brega, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. PostGIS y Elasticsearch están desplegados. Avantix está implementada y validada localmente, pero aún no se cargó en Supabase. Todavía no existen la tercera fuente, filtros de tipo/precio, API JSON, paginación pública ni mapa. La suite actual descubrió 87 pruebas: 86 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
+La conexión y migraciones hasta `0011` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones de Brega, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. PostGIS y Elasticsearch están desplegados. El 11 de octubre el equipo confirmó 275 publicaciones de Avantix en Supabase y resultados públicos de ambas fuentes. Gaggiotti está implementada localmente: se validaron 306 publicaciones únicas reproduciendo listados reales en una base efímera, incluida una segunda carga sin duplicados. Todavía no existen filtros de tipo/dormitorios/precio, API JSON, paginación pública ni mapa. Suite final: 117 pruebas, 116 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 
@@ -107,9 +108,10 @@ La ingesta consulta los sitios externos y puede tardar por la paginación, las f
 ```powershell
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
 .\.venv\Scripts\python.exe manage.py importar_propiedades avantix
+.\.venv\Scripts\python.exe manage.py importar_propiedades gaggiotti
 ```
 
-Sin argumento procesa ambas fuentes:
+Sin argumento procesa las tres fuentes registradas:
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py importar_propiedades
@@ -121,18 +123,17 @@ Para iniciar el servidor de desarrollo:
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. La ejecución local es para desarrollo y pruebas; Django, PostGIS y Elasticsearch ya están disponibles en el sitio desplegado, mientras que Avantix sigue pendiente de publicación.
+Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. La ejecución local es para desarrollo y pruebas; Django, PostGIS, Elasticsearch y ambas fuentes ya están disponibles en el sitio desplegado.
 
 ## Próximos pasos
 
-1. Publicar Avantix, ejecutar manualmente el workflow y validar sus datos en Supabase, Elasticsearch y Render.
-2. Aislar los fallos por fuente para que una inmobiliaria caída no impida procesar las demás, informando al final cuáles fallaron.
-3. Elegir e integrar la tercera inmobiliaria reutilizando el flujo común.
-4. Definir recuperación incremental, limpieza de índices físicos anteriores y política de publicaciones retiradas.
-5. Completar filtros estructurados, paginación y una API para el frontend; ampliar la geografía cuando corresponda.
-6. Definir e implementar el frontend y el mapa después de completar el backend prioritario.
+1. Publicar y validar la tolerancia por fuente ya implementada y probada localmente.
+2. Publicar Gaggiotti, ejecutar el workflow y verificar su carga en Supabase y resultados públicos. No requiere migraciones ni Secrets nuevos.
+3. Agregar filtros de tipo, dormitorios y precio por operación/moneda.
+4. Implementar paginación y una API JSON.
+5. Desarrollar el frontend y el mapa después del backend.
 
-Siguen pendientes comprobar el historial e intervalo del ping, registrar el vencimiento exacto de Elastic Cloud, validar la geocodificación experimental, tratar publicaciones retiradas, aislar fallos por fuente y completar la paginación. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
+Siguen pendientes comprobar el historial e intervalo del ping, registrar el vencimiento exacto de Elastic Cloud, validar la geocodificación experimental, tratar publicaciones retiradas y definir recuperación incremental y limpieza de índices físicos anteriores. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
 
 ## Contexto para colaborar
 

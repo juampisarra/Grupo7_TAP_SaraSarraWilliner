@@ -51,6 +51,7 @@ jobs:
         run: python manage.py comprobar_elasticsearch
 
       - name: Ejecutar ingesta
+        id: ingesta
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -59,9 +60,20 @@ jobs:
           PGUSER: ${{ secrets.PGUSER }}
           PGPASSWORD: ${{ secrets.PGPASSWORD }}
           PGSSLMODE: ${{ secrets.PGSSLMODE }}
-        run: python manage.py importar_propiedades
+        # Mantener el paso fallido para que el job avise, pero publicar su código
+        # de salida para permitir indexar cuando alguna fuente terminó bien.
+        shell: bash
+        run: |
+          set +e
+          python manage.py importar_propiedades
+          codigo=$?
+          echo "codigo=$codigo" >> "$GITHUB_OUTPUT"
+          exit "$codigo"
 
       - name: Reconstruir índice de Elasticsearch
+        # 0: todas completadas; 3: al menos una completada y alguna fallida.
+        # No ejecutar ante fallo total, pasos previos fallidos o cancelación.
+        if: ${{ !cancelled() && (steps.ingesta.outputs.codigo == '0' || steps.ingesta.outputs.codigo == '3') }}
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
