@@ -2,7 +2,27 @@
 
 Elegida por el equipo el 11 de octubre de 2026. Adaptador implementado en `propiedades/scraping/gaggiotti.py`, registrado como `gaggiotti`, con procedencia persistida `Gaggiotti`. Comparte contrato, importador, persistencia, indexación y tolerancia por fuente con Brega y Avantix. Su extracción JSON es independiente de los parsers Tokko.
 
-Estado: implementación local; pendiente de push y primera ejecución productiva del workflow. No necesita migraciones, dependencias, variables de entorno ni Secrets nuevos.
+Estado al 12 de octubre de 2026: publicada y verificada en Supabase, Elasticsearch y búsquedas públicas. No necesita migraciones, dependencias, variables de entorno ni Secrets nuevos.
+
+## Primera ejecución productiva verificada — 12 de octubre
+
+El usuario autorizó al agente a realizar commit, push a `main` y ejecución manual del workflow. El código se publicó en `a390093`; [Actions terminó correctamente](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407) entre las 03:37:27 y las 03:52:17 de Argentina. Completó Avantix, Brega y Gaggiotti, con cero errores de detalle en las tres fuentes, y reconstruyó el índice.
+
+| Comprobación | Resultado |
+| --- | --- |
+| Gaggiotti en Supabase | 306 publicaciones: 264 en venta, 46 en alquiler y cuatro compartidas. |
+| Detalles y ubicación | 306 detalles verificados, 306 pares de coordenadas y puntos PostGIS; 305 ciudades explícitas. |
+| Precisión | Las 306 ubicaciones siguen con precisión desconocida y radio nulo. |
+| Identidad y modelo | Sin duplicados por fuente/identificador; todos los modelos de Gaggiotti pasan validación de campos. |
+| Base completa | 173 Brega, 275 Avantix y 306 Gaggiotti: 754 publicaciones. |
+| Elasticsearch | Alias sobre `propiedades-20261012065209-0b10f499`, 754 documentos. IDs y contenido de todos los documentos coinciden con PostgreSQL. |
+| Listado público | HTTP 200: 650 ventas y 121 alquileres, con los 264/46 avisos de Gaggiotti respectivamente. |
+| Texto `cochera` | HTTP 200: 299 ventas (112 Gaggiotti) y 37 alquileres (12 Gaggiotti). El orden público coincide exactamente con el ranking de Elasticsearch. |
+| Radio 2 km, centro `-31.25,-61.49`, venta | Solo exactas: 113 resultados, cero Gaggiotti. Con `incluir_aproximadas=1`: 308 resultados, 119 Gaggiotti y advertencia de precisión. Coinciden con PostGIS. |
+| Health y errores | `/health/` responde 200; radio negativo responde 400. |
+| Aviso original | Una ficha Gaggiotti enlazada desde la base respondió HTTP 200. |
+
+Los conteos son una instantánea de esta ejecución. Brega procesó 171 avisos actuales y conserva dos registros anteriores: no se implementó una política de bajas. Las comprobaciones posteriores al workflow fueron de solo lectura; la escritura productiva y la reconstrucción se realizaron mediante Actions. Los resultados locales del apartado siguiente corresponden al desarrollo previo.
 
 ## Servicio público verificado
 

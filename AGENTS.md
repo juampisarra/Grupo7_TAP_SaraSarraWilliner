@@ -57,9 +57,13 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
-### Publicación autorizada — 12 de octubre de 2026
+### Gaggiotti y tolerancia por fuente publicadas y verificadas — 12 de octubre de 2026
 
-El usuario autorizó explícitamente al agente a hacer el commit, push a `main` y ejecutar el workflow para publicar Gaggiotti y la tolerancia por fuente. Esta autorización reemplaza, para esta etapa, el acuerdo anterior de que el usuario haría el push. Comprobar después el resultado en Actions, Supabase, Elasticsearch y el sitio público antes de marcar la integración como desplegada.
+El usuario autorizó explícitamente al agente a hacer commit, push a `main` y ejecutar el workflow para publicar Gaggiotti y la tolerancia por fuente. Esta autorización reemplazó para esta etapa el acuerdo anterior de que el usuario haría el push. Código publicado en `a390093`; [workflow manual exitoso](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407), de 03:37:27 a 03:52:17 de Argentina. Las tres fuentes terminaron sin errores de detalle: Avantix actualizó 275, Brega 171 y Gaggiotti creó 306. Brega conserva dos avisos anteriores, conforme a la política de bajas todavía pendiente.
+
+Supabase contiene 754 publicaciones: 173 Brega, 275 Avantix y 306 Gaggiotti. Esta última tiene 264 ventas, 46 alquileres, cuatro compartidas, 306 detalles verificados y puntos PostGIS, 305 ciudades explícitas y precisión desconocida en todos sus puntos. Sin duplicados; los modelos de Gaggiotti pasan validación de campos. El alias de Elasticsearch apunta a `propiedades-20261012065209-0b10f499`; sus 754 documentos coinciden íntegramente en IDs y contenido con PostgreSQL.
+
+Comprobaciones públicas HTTP 200: listados con 264/46 avisos de Gaggiotti y búsqueda `cochera` con 112 ventas/12 alquileres de esa fuente, conservando exactamente el ranking de Elasticsearch. Radio de 2 km en venta desde `-31.25,-61.49`: cero Gaggiotti en modo solo exactas y 119 con `incluir_aproximadas=1`, coincidiendo con PostGIS y mostrando advertencia. Health 200, radio inválido 400 y una ficha original Gaggiotti 200. Suite local previa: 117 pruebas, 116 aprobadas y una PostGIS omitida con SQLite; sin migraciones ni dependencias rotas. Ver [detalle de validación](docs/gaggiotti.md). Las secciones del 11 de octubre que siguen conservan el estado histórico de preparación local.
 
 ### Gaggiotti: tercera fuente implementada localmente — 11 de octubre de 2026
 
@@ -164,7 +168,7 @@ Al actualizar este contexto, el código contiene:
 
 La conexión y las migraciones hasta `0011` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
 
-PostGIS está integrado mediante `0011` y filtros por radio/rectángulo. Elasticsearch, el formulario textual mínimo, GitHub Actions, Brega y Avantix están desplegados y verificados. Supabase contiene 275 registros de Avantix en la comprobación posterior al despliegue. Gaggiotti y la tolerancia por fuente están implementadas localmente, pendientes de publicación. Todavía no hay filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
+PostGIS, Elasticsearch, formulario textual mínimo, GitHub Actions, tolerancia por fuente y las tres inmobiliarias están publicados y verificados. Supabase contiene 754 publicaciones en la comprobación del 12 de octubre. Todavía no hay filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
 
 ```powershell
 $env:DB_ENGINE = "sqlite"
@@ -178,7 +182,7 @@ El ejemplo supone que no había una variable de sistema `DB_ENGINE` previamente 
 
 Para instalar dependencias, configurar `.env`, conectar Supabase y conservar datos de SQLite, seguir [docs/base_de_datos.md](docs/base_de_datos.md). La selección es `DB_ENGINE=sqlite` (predeterminado) o `DB_ENGINE=postgresql` con `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` y `PGSSLMODE`. PostgreSQL usa TLS por defecto. No se guardan credenciales en el código ni se requiere una API key de Supabase. Ejecutar migraciones antes de la ingesta. La exportación/importación documentada está destinada a un PostgreSQL vacío, no a mezclar bases con publicaciones existentes. En Windows usar `python.exe -X utf8` para `dumpdata`/`loaddata` y conservar correctamente los acentos.
 
-Están registradas Brega, Avantix y Gaggiotti; las dos primeras ya se ingirieron en producción y Gaggiotti está probada localmente. `importar_propiedades` lleva un guion bajo y la clave de fuente se escribe en minúsculas. Desde la raíz del proyecto, en PowerShell:
+Están registradas e ingeridas en producción Brega, Avantix y Gaggiotti. `importar_propiedades` lleva un guion bajo y la clave de fuente se escribe en minúsculas. Desde la raíz del proyecto, en PowerShell:
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py importar_propiedades brega
@@ -202,7 +206,7 @@ El alias `importar_brega` también admite `--completar-ubicacion`. Sin esa opci�
 Job Python en GitHub Actions (semanal y manual)
   ├─ Scraper/adaptador Brega (disponible)
   ├─ Scraper/adaptador Avantix (desplegado)
-  └─ Scraper/adaptador Gaggiotti (local, pendiente de publicar)
+  └─ Scraper/adaptador Gaggiotti (publicado y verificado)
                    │
                    ▼
              Normalización común
@@ -294,7 +298,7 @@ El frontend futuro permitirá seleccionar un punto/radio o dibujar un área en u
 
 ## Fuentes exploradas y reutilización
 
-Brega y Avantix tienen scrapers registrados, desplegados y validados con datos en Supabase y búsquedas públicas. Gaggiotti fue elegida e implementada como tercera fuente, con un adaptador independiente para su servicio JSON público; reutiliza el flujo común y está pendiente de publicación. Ver [Gaggiotti](docs/gaggiotti.md).
+Brega, Avantix y Gaggiotti tienen scrapers registrados y validados mediante el workflow, datos en Supabase y búsquedas públicas. Gaggiotti utiliza un adaptador independiente para su servicio JSON público y reutiliza el flujo común. Ver [Gaggiotti](docs/gaggiotti.md).
 
 - Brega: https://www.bregainmobiliaria.ar
 - Avantix: https://www.avantix.ar
@@ -324,14 +328,14 @@ El despliegue básico, health, PostGIS, Elasticsearch público, el formulario te
 1. Parsers comunes de listado y ficha, y recorrido común de paginación extraídos sin alterar el comportamiento verificado de Brega; cada fuente conserva sus URLs, solicitudes y configuración.
 2. `AdaptadorAvantix` implementado y registrado, con pruebas de listados, operaciones dobles, precios, detalles, registro y terminación/límite de páginas.
 3. Extracción pública, ingesta efímera local, ingesta real en Supabase y reconstrucción de Elasticsearch validadas mediante el workflow.
-4. Identidad por fuente y resultados públicos de ambas inmobiliarias comprobados. La tolerancia al fallo completo de una fuente y la integración de Gaggiotti están implementadas y probadas localmente, pendientes de publicar y comprobar en Actions.
+4. Identidad por fuente y resultados públicos comprobados. El 12 de octubre se publicaron la tolerancia por fuente y Gaggiotti; el workflow completo y los datos/resultados de las tres fuentes quedaron verificados. El aislamiento ante fallos está cubierto por pruebas locales; la ejecución productiva terminó con las tres fuentes exitosas.
 
 El despliegue de la segunda fuente comprueba la extensibilidad del importador común; no completa las features pendientes ni requiere definir una nueva interfaz.
 
 ## Próximos cinco pasos acordados
 
-1. **Tolerancia a fallos por fuente:** implementada localmente y probada; falta publicar y validar el workflow. Continúa con las fuentes restantes y reconstruye ante éxito parcial, manteniendo el job fallido. Ver [ingesta](docs/ingesta.md).
-2. **Tercera inmobiliaria:** Gaggiotti elegida, implementada y probada localmente mediante el contrato común; falta publicar y comprobar su primera carga en Supabase y búsqueda pública. Ver [Gaggiotti](docs/gaggiotti.md).
+1. **Tolerancia a fallos por fuente: completada y publicada.** Aislamiento probado localmente y workflow publicado/verificado con ejecución exitosa de las tres fuentes. Continúa con las restantes y reconstruye ante éxito parcial, manteniendo el job fallido. Ver [ingesta](docs/ingesta.md).
+2. **Tercera inmobiliaria: completada y publicada.** Gaggiotti ingerida en Supabase, indexada y comprobada en búsquedas públicas. Ver [Gaggiotti](docs/gaggiotti.md).
 3. **Filtros estructurados:** incorporar tipo, dormitorios y precio, manteniendo precio separado por operación y exigiendo moneda para comparaciones coherentes.
 4. **Paginación y API JSON:** definir un contrato único que combine el orden de Elasticsearch con filtros PostgreSQL/PostGIS y permita al futuro frontend consumir resultados paginados.
 5. **Frontend y mapa:** definir e implementar la interfaz después de completar el backend anterior; el mapa debe enviar geometrías o parámetros al backend y no calcular distancias ni consultar directamente Supabase o Elasticsearch.
@@ -340,8 +344,7 @@ En paralelo con el primer paso, comprobar el historial del ping y el vencimiento
 
 ## Decisiones de implementación pendientes
 
-- Publicar y comprobar la tolerancia por fuente implementada. Estado de salida y secuencia del workflow ya definidos en [ingesta](docs/ingesta.md).
-- Publicar Gaggiotti y comprobar su primera ingesta productiva, reconstrucción del índice y resultados públicos. La elección e implementación ya están resueltas.
+- Tolerancia por fuente y Gaggiotti publicadas y verificadas el 12 de octubre. No son tareas pendientes; seguir con filtros estructurados.
 - Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; política de intersección de áreas de incertidumbre, polígonos arbitrarios y futuras ampliaciones del esquema común; la representación espacial y los filtros básicos ya están implementados. El proyecto Supabase, conexión y migraciones hasta `0011` están verificados.
 - [X] Workflow y frecuencia en GitHub Actions: lunes a las 00:00 de Argentina, ejecución manual, Secrets, exclusión de simultaneidad, comprobación previa de Elastic e indexación completa posterior verificadas.
 - [ ] Automatización pendiente: recuperación incremental y política de limpieza de versiones físicas anteriores del índice.

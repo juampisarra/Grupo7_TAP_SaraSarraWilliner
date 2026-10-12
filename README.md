@@ -1,8 +1,8 @@
 # Grupo7_TAP_SaraSarraWilliner
 
-Actualización del 11 de octubre: `/health/`, PostGIS, Elasticsearch y el formulario textual mínimo están desplegados. GitHub Actions ejecuta semanalmente la ingesta general y la reconstrucción completa del índice; su ejecución manual ya fue verificada. Avantix está desplegada como segunda fuente y el equipo confirmó 275 publicaciones en Supabase y búsquedas públicas de ambas inmobiliarias. **Gaggiotti está integrada como tercera fuente y probada localmente**, junto con la tolerancia a fallos por fuente; falta publicar estos cambios y comprobar su primera carga productiva. Ver [Gaggiotti](docs/gaggiotti.md) y [operación y recuperación de ingesta](docs/ingesta.md). El frontend definitivo y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
+Actualización del 12 de octubre: `/health/`, PostGIS, Elasticsearch y el formulario textual mínimo están desplegados. **Brega, Avantix y Gaggiotti están publicadas y verificadas**, junto con la tolerancia a fallos por fuente. El workflow manual terminó correctamente: Supabase tiene 754 publicaciones y Elasticsearch contiene los mismos documentos. Se comprobaron listados, relevancia y filtros geográficos públicos. Ver [Gaggiotti y resultados de validación](docs/gaggiotti.md) y [operación y recuperación de ingesta](docs/ingesta.md). El frontend definitivo y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
 
-**Para el compañero que administra Render:** seguir la [guía de continuidad](docs/continuidad.md), con las variables que debe agregar, pasos de publicación, URLs de prueba y pendientes. El usuario hará el push; `.env` no se sube ni actualiza Render automáticamente.
+**Para el compañero que administra Render:** la [guía de continuidad](docs/continuidad.md) conserva la configuración, recuperación y pendientes. El usuario autorizó al agente a publicar esta etapa; `.env` no se sube ni actualiza Render automáticamente y no se necesitaron variables nuevas.
 
 Trabajo práctico de TAP del Grupo 7 (Sara, Sarra y Williner): un Observatorio Inmobiliario orientado inicialmente a propiedades de Rafaela. Centraliza publicaciones de distintas inmobiliarias para buscar, filtrar y comparar opciones desde una única aplicación, conservando la fuente y el enlace al aviso original.
 
@@ -77,7 +77,7 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler, búsqueda textual mínima por relevancia y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0011` están verificadas en Supabase. La revisión del 8 de octubre de 2026 encontró 173 publicaciones de Brega, 172 con coordenadas completas, 170 con ciudad inferida y 172 con provincia inferida; esos conteos no garantizan precisión individual. PostGIS y Elasticsearch están desplegados. El 11 de octubre el equipo confirmó 275 publicaciones de Avantix en Supabase y resultados públicos de ambas fuentes. Gaggiotti está implementada localmente: se validaron 306 publicaciones únicas reproduciendo listados reales en una base efímera, incluida una segunda carga sin duplicados. Todavía no existen filtros de tipo/dormitorios/precio, API JSON, paginación pública ni mapa. Suite final: 117 pruebas, 116 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
+La conexión y migraciones hasta `0011` están verificadas en Supabase. Al 12 de octubre hay 173 publicaciones de Brega, 275 de Avantix y 306 de Gaggiotti. El workflow productivo terminó sin errores de detalle y el índice coincide íntegramente con la base. La búsqueda pública conserva el ranking y los filtros espaciales coinciden con PostGIS. La repetición sin duplicados también se probó localmente. Todavía no existen filtros de tipo/dormitorios/precio, API JSON, paginación pública ni mapa. Suite final: 117 pruebas, 116 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 
@@ -123,12 +123,12 @@ Para iniciar el servidor de desarrollo:
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
-Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. La ejecución local es para desarrollo y pruebas; Django, PostGIS, Elasticsearch y ambas fuentes ya están disponibles en el sitio desplegado.
+Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra los datos de la base configurada; sin datos previos estará vacío. Usar Supabase permite consultar las publicaciones ya cargadas sin repetir la ingesta. El alias `importar_brega` sigue disponible. La ejecución local es para desarrollo y pruebas; Django, PostGIS, Elasticsearch y las tres fuentes ya están disponibles en el sitio desplegado.
 
 ## Próximos pasos
 
-1. Publicar y validar la tolerancia por fuente ya implementada y probada localmente.
-2. Publicar Gaggiotti, ejecutar el workflow y verificar su carga en Supabase y resultados públicos. No requiere migraciones ni Secrets nuevos.
+1. Tolerancia por fuente completada y publicada; aislamiento probado localmente y workflow exitoso en producción.
+2. Gaggiotti completada y publicada; carga, índice y resultados públicos verificados el 12 de octubre.
 3. Agregar filtros de tipo, dormitorios y precio por operación/moneda.
 4. Implementar paginación y una API JSON.
 5. Desarrollar el frontend y el mapa después del backend.

@@ -1,6 +1,6 @@
 # Ingesta y tolerancia a fallos por fuente
 
-Implementado localmente el 11 de octubre de 2026; pendiente de push y validación del workflow en GitHub Actions. No requiere migraciones, nuevas dependencias, variables ni Secrets.
+Implementado localmente el 11 de octubre de 2026 y publicado el 12 de octubre. El [workflow manual](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407) completó las tres fuentes y la reconstrucción correctamente, sin errores de detalle. El aislamiento ante fallo parcial/total está cubierto por pruebas locales; no se provocó una caída de fuente en producción. No requiere migraciones, nuevas dependencias, variables ni Secrets.
 
 ## Ejecución
 
@@ -8,7 +8,7 @@ Implementado localmente el 11 de octubre de 2026; pendiente de push y validació
 .\.venv\Scripts\python.exe manage.py importar_propiedades
 ```
 
-Procesa las fuentes registradas en orden alfabético: Avantix, Brega y Gaggiotti. También admite `importar_propiedades avantix`, `importar_propiedades brega`, `importar_propiedades gaggiotti` y el alias `importar_brega`. La opción `--completar-ubicacion` se transmite a cada fuente seleccionada. Gaggiotti está implementada localmente y pendiente de su primera carga productiva; ver [adaptador y validación](gaggiotti.md).
+Procesa las fuentes registradas en orden alfabético: Avantix, Brega y Gaggiotti. También admite `importar_propiedades avantix`, `importar_propiedades brega`, `importar_propiedades gaggiotti` y el alias `importar_brega`. La opción `--completar-ubicacion` se transmite a cada fuente seleccionada. Las tres fuentes están verificadas en producción; ver [adaptador y validación de Gaggiotti](gaggiotti.md).
 
 Cada fuente se ejecuta de forma independiente. Si falla su inicialización, listado, paginación o ingesta, se informa el nombre, tipo de excepción y causa por stderr, y se continúa con la siguiente. Al terminar se enumeran las fuentes completadas y fallidas. No se capturan interrupciones del proceso como Ctrl+C o `SystemExit`.
 
@@ -61,4 +61,4 @@ Evitar ingestas locales simultáneas con Actions y escrituras durante una recons
 - Prueba con el importador y SQLite efímero: se conservan publicaciones anteriores de la fuente fallida, se guarda la otra fuente y se repite sin duplicados.
 - Script Bash del workflow ejecutado localmente con un comando simulado: conserva y comunica los códigos `0`, `3`, `1` y `130`.
 
-Las pruebas de aislamiento usan servicios simulados y base efímera; no modifican Supabase o Elasticsearch. La validación separada de Gaggiotti incluyó solicitudes públicas reales y repetición de sus respuestas capturadas en una base efímera, como detalla su guía. La ejecución de esta versión en GitHub Actions queda pendiente de publicar el código.
+Las pruebas de aislamiento usan servicios simulados y base efímera; no modifican Supabase o Elasticsearch. La validación separada de Gaggiotti incluyó solicitudes públicas reales y repetición de sus respuestas capturadas en una base efímera. El 12 de octubre se publicó el código y el workflow completó la ingesta productiva y reconstrucción: 754 documentos, iguales a PostgreSQL. Los detalles están en la guía de Gaggiotti.

@@ -1,8 +1,8 @@
 # Continuidad del proyecto y entrega al compañero
 
-Estado al 11 de octubre de 2026. Elasticsearch, GitHub Actions y Avantix ya están publicados y verificados por el equipo. Esta guía conserva el procedimiento de configuración como referencia de recuperación. Gaggiotti y la tolerancia por fuente están implementadas y probadas localmente, pendientes de publicar; ver [Gaggiotti](gaggiotti.md) e [ingesta](ingesta.md). El equipo indicó que la evaluación es el martes 13 de octubre.
+Estado al 12 de octubre de 2026. Elasticsearch, GitHub Actions y las tres inmobiliarias están publicados y verificados. Esta guía conserva el procedimiento de configuración como referencia de recuperación. Gaggiotti y la tolerancia por fuente se publicaron en `a390093`; el [workflow manual](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407) terminó correctamente. Ver [Gaggiotti](gaggiotti.md) e [ingesta](ingesta.md). El equipo indicó que la evaluación es el martes 13 de octubre.
 
-**Para publicar esta etapa:** hacer commit/push del código, comprobar el workflow nuevo en GitHub y ejecutar **Ingesta Semanal de Propiedades** manualmente. El comando general incorpora Gaggiotti automáticamente. Revisar su resumen, la reconstrucción del índice, filas con `fuente=Gaggiotti` en Supabase y búsquedas/enlaces públicos. No hay variables, Secrets, dependencias ni migraciones nuevas; las instrucciones de configuración que siguen son referencias para quien todavía no tenga el entorno anterior.
+**Esta etapa está publicada:** el agente hizo commit/push y ejecutó **Ingesta Semanal de Propiedades** con autorización explícita del usuario. Supabase tiene 306 registros de Gaggiotti y 754 publicaciones totales; el índice coincide con la base y las búsquedas públicas conservan relevancia. No hubo variables, Secrets, dependencias ni migraciones nuevas. Las instrucciones siguientes son referencias para configuración y recuperación, no tareas de despliegue todavía pendientes.
 
 ## Estado comprobado
 
@@ -11,12 +11,12 @@ Estado al 11 de octubre de 2026. Elasticsearch, GitHub Actions y Avantix ya est�
 | Django / Render | Sitio público funcionando con Supabase, HTTPS y estáticos. |
 | `/health/` | Desplegado; HTTP 200 con `{"status":"ok"}`, sin consultar servicios externos. |
 | Plantilla | Desplegada la corrección que distingue cero de datos ausentes. |
-| PostgreSQL / Supabase | 173 publicaciones en la revisión; migraciones hasta `0011` aplicadas. |
+| PostgreSQL / Supabase | 754 publicaciones en la revisión del 12 de octubre; migraciones hasta `0011` aplicadas. |
 | PostGIS | Instalado; almacenamiento espacial e índices GiST. Filtros por radio y rectángulo desplegados, mediante parámetros de URL. |
-| Elastic Cloud | Proyecto creado y conexión real comprobada. Alias `propiedades` cargado con 173 documentos desde Supabase. |
+| Elastic Cloud | Alias `propiedades` con 754 documentos; IDs y contenido coinciden íntegramente con Supabase. |
 | Django + Elasticsearch | Desplegado en Render; búsqueda por `q`, relevancia y formulario mínimo verificados públicamente. |
 | Scraper | Brega y Avantix desplegadas; el equipo confirmó 275 registros de Avantix en Supabase y búsquedas públicas de ambas fuentes. |
-| Gaggiotti | Tercera fuente registrada y probada localmente; pendiente de primera ingesta productiva después del push. |
+| Gaggiotti | Publicada y verificada: 306 publicaciones, detalles y puntos PostGIS; búsqueda textual y geográfica públicas comprobadas. |
 | cron-job.org | Job creado; falta comprobar una ejecución programada exitosa en su historial. |
 | GitHub Actions | Workflow general, Secrets, concurrencia, ejecución manual y programación semanal verificados. Reconstruye Elasticsearch después de la ingesta. |
 
@@ -24,7 +24,7 @@ Los conteos son una instantánea, no valores esperados permanentes. Elastic Clou
 
 ## 1. Publicar el código y actualizar el entorno local
 
-Quien tiene los cambios revisa y hace commit/push de esta etapa. Esta documentación no implica que ese push ya haya ocurrido.
+Esta etapa ya se publicó con autorización del usuario. Para publicaciones futuras, quien tenga los cambios revisa y hace commit/push; el procedimiento siguiente también sirve para actualizar otra computadora del equipo.
 
 El compañero actualiza su copia con `git pull` y, desde la raíz del proyecto, instala las dependencias:
 
@@ -119,16 +119,16 @@ Para aislar una fuente se puede agregar `brega`, `avantix` o `gaggiotti` al prim
 
 La reconstrucción crea una versión nueva y cambia el alias tras validar la carga. Conserva versiones anteriores; no borrarlas sin identificar el índice activo. Evitar escrituras durante la reconstrucción. Ver [procedimiento y límites de recuperación](elasticsearch.md).
 
-El comando general procesa `avantix`, `brega` y `gaggiotti`, en ese orden. La nueva tolerancia por fuente, implementada localmente y pendiente de publicar, permite continuar después de una fuente fallida. Devuelve `3` ante éxito parcial y `1` si todas fallan. El workflow reconstruye con `0` o `3`, manteniendo el job fallido ante fallo parcial; con fallo total omite el índice. Los errores recuperables de fichas individuales mantienen su comportamiento anterior. Ver [operación y recuperación](ingesta.md).
+El comando general procesa `avantix`, `brega` y `gaggiotti`, en ese orden. La tolerancia por fuente ya publicada permite continuar después de una fuente fallida. Devuelve `3` ante éxito parcial y `1` si todas fallan. El workflow reconstruye con `0` o `3`, manteniendo el job fallido ante fallo parcial; con fallo total omite el índice. Los errores recuperables de fichas individuales mantienen su comportamiento anterior. Ver [operación y recuperación](ingesta.md).
 
 ## Trabajo que sigue
 
-1. **Publicar la tolerancia por fuente:** código y workflow listos y probados localmente. No requiere Secrets ni migraciones nuevas. Comprobar la próxima ejecución en Actions después del push.
-2. **Publicar Gaggiotti:** integración y pruebas locales completas. Ejecutar el workflow después del push y comprobar primera carga, reconstrucción y resultados públicos. Su servicio devolvió errores 502 durante la validación; si falla, el resumen identifica la fuente y se puede reejecutar cuando se recupere. Ver [validación y límites](gaggiotti.md).
+1. **Tolerancia por fuente: completada y publicada.** Aislamiento probado localmente; workflow publicado y comprobado con las tres fuentes exitosas.
+2. **Gaggiotti: completada y publicada.** Primera carga, reconstrucción y resultados públicos verificados el 12 de octubre. Ver [validación y límites](gaggiotti.md).
 3. **Filtros estructurados:** agregar tipo, dormitorios y precio por operación/moneda.
 4. **Paginación y API JSON:** preparar el acceso del futuro frontend.
 5. **Frontend y mapa:** desarrollarlos después de completar el backend.
 
 En paralelo quedan historial del ping, vencimiento/continuidad de Elastic, recuperación incremental, limpieza de versiones del índice y política de avisos retirados.
 
-La suite final descubrió 117 pruebas: 116 aprobadas y una integración PostGIS omitida al usar SQLite. No hay cambios de modelo pendientes. Gaggiotti se relevó con solicitudes públicas reales y su versión optimizada se verificó reproduciendo respuestas capturadas en una base efímera: 306 altas y una segunda carga de 306 actualizaciones sin duplicados. No se modificaron Supabase ni Elasticsearch. Las comprobaciones productivas de Avantix corresponden a la etapa anterior confirmada por el equipo. Ver [Gaggiotti](gaggiotti.md) y [validación de tolerancia](ingesta.md).
+La suite local descubrió 117 pruebas: 116 aprobadas y una integración PostGIS omitida al usar SQLite. No hay cambios de modelo pendientes ni dependencias rotas. La validación efímera probó 306 altas y una segunda carga sin duplicados. Después, el workflow productivo del 12 de octubre creó 306 Gaggiotti y reconstruyó los 754 documentos sin errores. Las comprobaciones posteriores fueron de solo lectura: índice completo igual a PostgreSQL, orden público igual a Elasticsearch y filtros públicos iguales a PostGIS. Ver [Gaggiotti](gaggiotti.md) y [validación de tolerancia](ingesta.md).

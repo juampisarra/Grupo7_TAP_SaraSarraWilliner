@@ -130,7 +130,7 @@ La ingesta local efímera del 11 de octubre procesó 275 publicaciones Avantix a
 
 ### Gaggiotti
 
-Tercera fuente elegida por el equipo e implementada localmente. `importar_propiedades gaggiotti` consulta el servicio público que usa su web y reutiliza las fichas completas recibidas en los listados. Comparte el modelo y la persistencia existentes: no requiere migraciones ni credenciales adicionales. Conserva precios por operación y moneda, respeta precios ocultos y obtiene ciudad/provincia de la jerarquía explícita de la fuente. Guarda coordenadas válidas con precisión desconocida (`ubicacion_aproximada=NULL`) y radio nulo. Su primera carga productiva queda pendiente del push y del workflow; ver [contrato, validación y publicación](gaggiotti.md).
+Tercera fuente elegida por el equipo y publicada el 12 de octubre. `importar_propiedades gaggiotti` consulta el servicio público que usa su web y reutiliza las fichas completas recibidas en los listados. Comparte el modelo y la persistencia existentes: no requiere migraciones ni credenciales adicionales. Conserva precios por operación y moneda, respeta precios ocultos y obtiene ciudad/provincia de la jerarquía explícita de la fuente. Guarda coordenadas válidas con precisión desconocida (`ubicacion_aproximada=NULL`) y radio nulo. El workflow creó 306 publicaciones con detalles y puntos PostGIS, sin errores; se verificaron también el índice y las búsquedas públicas. Ver [contrato, validación y publicación](gaggiotti.md).
 
 ## Completar ciudad/provincia opcionalmente
 
