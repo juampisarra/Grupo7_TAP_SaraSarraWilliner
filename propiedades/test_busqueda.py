@@ -73,7 +73,7 @@ class ClienteTests(SimpleTestCase):
 @override_settings(**CONFIG)
 class ReconstruccionTests(TestCase):
     def setUp(self):
-        self.p = Propiedad.objects.create(fuente="Brega", identificador_fuente="1", descripcion="Casa con cochera")
+        self.p = Propiedad.objects.create(fuente="Brega", identificador_fuente="1", descripcion="Casa con cochera", en_venta=True)
         self.crear = patch("propiedades.busqueda.indice.crear_cliente").start()
         self.addCleanup(patch.stopall)
         self.cliente = self.crear.return_value.__enter__.return_value
@@ -81,6 +81,7 @@ class ReconstruccionTests(TestCase):
         self.cliente.indices.exists_alias.return_value = False
         self.cliente.count.return_value = {"count": 1}
         self.cliente.indices.update_aliases.return_value = {"acknowledged": True}
+        self.cliente.indices.put_mapping.return_value = {"acknowledged": True}
         self.bulk = patch("propiedades.busqueda.indice.helpers.streaming_bulk").start()
         self.enviados = []
         def enviar(cliente, acciones, **kwargs):
@@ -130,6 +131,37 @@ class ReconstruccionTests(TestCase):
     def test_base_vacia_no_reemplaza_el_indice_por_accidente(self):
         Propiedad.objects.all().delete()
         self.cliente.count.return_value = {"count": 0}
+        with self.assertRaises(BusquedaNoDisponible):
+            reconstruir_indice()
+        self.cliente.indices.update_aliases.assert_not_called()
+
+    def test_retira_del_indice_solo_avisos_sin_operaciones_vigentes(self):
+        Propiedad.objects.create(fuente="Brega", identificador_fuente="retirada", en_venta=False, en_alquiler=False)
+        reconstruir_indice()
+        self.assertEqual([a["_id"] for a in self.enviados], [str(self.p.pk)])
+
+    def test_todas_retiradas_puede_activar_indice_vacio_con_base_no_vacia(self):
+        Propiedad.objects.update(en_venta=False, en_alquiler=False)
+        self.cliente.count.return_value = {"count": 0}
+        _, cantidad = reconstruir_indice()
+        self.assertEqual(cantidad, 0)
+        self.cliente.indices.update_aliases.assert_called_once()
+
+    def test_base_realmente_vacia_requiere_opcion_explicita(self):
+        Propiedad.objects.all().delete()
+        self.cliente.count.return_value = {"count": 0}
+        _, cantidad = reconstruir_indice(permitir_vacio=True)
+        self.assertEqual(cantidad, 0)
+
+    def test_registra_version_anterior_y_no_activa_si_falla_el_marcado(self):
+        self.cliente.indices.exists_alias.return_value = True
+        self.cliente.indices.get_alias.return_value = {"propiedades-anterior": {}}
+        reconstruir_indice()
+        meta = self.cliente.indices.put_mapping.call_args.kwargs["meta"]["grupo7"]
+        self.assertEqual(meta["anteriores"], ["propiedades-anterior"])
+        self.assertTrue(meta["completo"])
+        self.cliente.indices.update_aliases.reset_mock()
+        self.cliente.indices.put_mapping.return_value = {"acknowledged": False}
         with self.assertRaises(BusquedaNoDisponible):
             reconstruir_indice()
         self.cliente.indices.update_aliases.assert_not_called()

@@ -130,6 +130,7 @@ class ConservacionDatosAnteFalloTests(TestCase):
         anterior = Propiedad.objects.create(
             fuente="Avantix", identificador_fuente="anterior",
             direccion="Dirección anterior", url_original="https://example.test/anterior",
+            en_venta=True, en_alquiler=True,
         )
         aviso = PublicacionNormalizada(
             identificador_fuente="nuevo", url_original="https://example.test/nuevo",
@@ -151,5 +152,6 @@ class ConservacionDatosAnteFalloTests(TestCase):
                 self.assertEqual(fallo.exception.returncode, 3)
                 anterior.refresh_from_db()
                 self.assertEqual(anterior.direccion, "Dirección anterior")
+                self.assertTrue(anterior.en_venta and anterior.en_alquiler)
                 self.assertEqual(Propiedad.objects.count(), 2)
                 self.assertTrue(Propiedad.objects.filter(fuente="Brega", identificador_fuente="nuevo").exists())

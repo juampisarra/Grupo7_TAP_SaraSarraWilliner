@@ -1,10 +1,16 @@
 # Despliegue básico y continuidad
 
+**Fotos (última etapa local): requiere `0012_propiedad_fotos` antes de ingerir.** El build existente aplica migrate y collectstatic; esperar su finalización antes de ejecutar Actions para cargar las galerías. Actions valida migraciones pendientes sin aplicarlas. Sin variables, Secrets ni dependencias nuevas. Ver [fotos y publicación](fotos.md).
+
+Filtros estructurados, paginación y API JSON implementados localmente el 12 de octubre: pendientes de publicar. Esta etapa solo necesita desplegar el código en Render; no cambia variables, migraciones ni dependencias y no exige ingesta o reconstrucción del índice. Comprobar luego `/api/propiedades/`, sus enlaces, búsquedas filtradas y navegación HTML; ver [guía de la API](api_propiedades.md).
+
 Actualización del 12 de octubre: health, plantilla, PostGIS y Elasticsearch están desplegados; las tres inmobiliarias y la tolerancia por fuente están publicadas. GitHub Actions completó la ingesta general sin errores de detalle y reconstruyó los 754 documentos. Se verificaron Supabase, igualdad del índice, búsqueda pública por relevancia y filtros espaciales. Ver [Gaggiotti](gaggiotti.md) e [ingesta](ingesta.md). El ping de cron-job.org fue creado, con historial aún pendiente de comprobación.
 
 Render ya tiene `ELASTICSEARCH_URL`, `ELASTICSEARCH_API_KEY` y `ELASTICSEARCH_INDEX=propiedades` en **Environment**. Nunca subir `.env`. Ante una nueva configuración, copiar los valores sin comillas adicionales y verificar `/propiedades/?operacion=alquiler&q=departamento%20con%20cochera`. No ejecutar reconstrucción en el build ni desde una visita; la actualización corresponde al workflow o a un comando de mantenimiento explícito. Ver [comandos y próximos pasos](elasticsearch.md). Sin las variables, el listado normal sigue funcionando y las búsquedas textuales devuelven 503.
 
 Para continuar desde la cuenta propietaria de Render, seguir la [guía de entrega al compañero](continuidad.md): variables, publicación, URLs de prueba, resolución de problemas y lista de pendientes. Actualizar el `.env` local no actualiza Render; el archivo no se comparte mediante Git.
+
+Bajas por operación y mantenimiento también están implementados localmente: después de publicar, ejecutar ingesta para conciliar listados y reconstruir; comprobar el resumen antes de usar la vista previa de limpieza. No requieren cambios de esquema ni Secrets nuevos. Ver [procedimiento de mantenimiento](mantenimiento.md).
 
 ## Qué se completó
 
@@ -119,7 +125,7 @@ Después de una ingesta manual, ejecutar `python manage.py reconstruir_indice` p
 
 El comando general y GitHub Actions están publicados y verificados con Brega, Avantix y Gaggiotti. El workflow manual del 12 de octubre creó 306 Gaggiotti y reconstruyó los 754 documentos de la base. No requiere migraciones, dependencias, variables ni Secrets nuevos. Ver [datos, validación y publicación](gaggiotti.md).
 
-La tolerancia por fuente ya publicada continúa con las restantes ante un fallo, informa el resultado final y permite reconstruir el índice ante éxito parcial, conservando el job fallido. Si ninguna fuente termina bien, omite reconstrucción. El aislamiento está cubierto por pruebas locales; la ejecución productiva completó las tres fuentes. Ver [códigos de salida y recuperación](ingesta.md). PostGIS, Elasticsearch y los filtros por radio/rectángulo están desplegados. Recuperación incremental, filtros de tipo/dormitorios/precio, API, frontend definitivo y mapa siguen pendientes.
+La tolerancia por fuente ya publicada continúa con las restantes ante un fallo, informa el resultado final y permite reconstruir el índice ante éxito parcial, conservando el job fallido. Si ninguna fuente termina bien, omite reconstrucción. El aislamiento está cubierto por pruebas locales; la ejecución productiva completó las tres fuentes. Ver [códigos de salida y recuperación](ingesta.md). PostGIS, Elasticsearch y los filtros por radio/rectángulo están desplegados. Filtros estructurados/paginación/API están implementados localmente, pendientes de publicación. Recuperación incremental, frontend definitivo y mapa siguen pendientes de implementar.
 
 ## Elasticsearch en Elastic Cloud
 
@@ -127,4 +133,4 @@ El 10 de octubre se completaron creación del servicio, conexión desde Django, 
 
 La búsqueda acepta `q` en `/propiedades/`, dispone de un formulario mínimo, devuelve resultados ordenados por relevancia y conserva filtros de operación y PostGIS. Supabase mantiene la autoridad sobre los datos. Sin `q`, el listado no consulta Elasticsearch. No hay mapa ni frontend definitivo.
 
-Gaggiotti y la tolerancia por fuente ya están publicadas y verificadas en el workflow y las búsquedas públicas. El siguiente paso funcional son los filtros estructurados; después paginación/API y finalmente frontend/mapa. Quedan además recuperación incremental y limpieza de versiones físicas. Registrar también la fecha/hora exactas de vencimiento de Elastic y su continuidad posterior. La lista ordenada está en [trabajo que sigue](continuidad.md#trabajo-que-sigue).
+Gaggiotti y la tolerancia por fuente ya están publicadas y verificadas. El siguiente paso operativo es publicar y comprobar filtros estructurados/paginación/API implementados localmente; la próxima feature es frontend/mapa. Bajas por operación, reconstrucción independiente y limpieza con vista previa también están implementadas localmente y pendientes de publicar; ver [mantenimiento](mantenimiento.md). La indexación/recuperación incremental sigue pendiente. Registrar también la fecha/hora exactas de vencimiento de Elastic y su continuidad posterior. La lista ordenada está en [trabajo que sigue](continuidad.md#trabajo-que-sigue).

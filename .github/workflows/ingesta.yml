@@ -6,6 +6,20 @@ on:
     - cron: '0 3 * * 1'
 
   workflow_dispatch:
+    inputs:
+      modo:
+        description: 'Operación a ejecutar (reconstruir no hace scraping)'
+        required: true
+        default: ingesta
+        type: choice
+        options:
+          - ingesta
+          - reconstruir
+          - limpiar_indices
+      aplicar_limpieza:
+        description: 'Borrar índices candidatos: solo para modo limpiar_indices, desmarcado = vista previa'
+        default: false
+        type: boolean
 
 concurrency:
   group: ingesta_propiedades
@@ -37,7 +51,7 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Comprobar Elasticsearch
+      - name: Comprobar migraciones y Elasticsearch
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -48,10 +62,13 @@ jobs:
           PGSSLMODE: ${{ secrets.PGSSLMODE }}
           ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
           ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
-        run: python manage.py comprobar_elasticsearch
+        run: |
+          python manage.py migrate --check
+          python manage.py comprobar_elasticsearch
 
       - name: Ejecutar ingesta
         id: ingesta
+        if: ${{ github.event_name == 'schedule' || inputs.modo == 'ingesta' }}
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -73,7 +90,7 @@ jobs:
       - name: Reconstruir índice de Elasticsearch
         # 0: todas completadas; 3: al menos una completada y alguna fallida.
         # No ejecutar ante fallo total, pasos previos fallidos o cancelación.
-        if: ${{ !cancelled() && (steps.ingesta.outputs.codigo == '0' || steps.ingesta.outputs.codigo == '3') }}
+        if: ${{ !cancelled() && ((inputs.modo == 'reconstruir' && success()) || steps.ingesta.outputs.codigo == '0' || steps.ingesta.outputs.codigo == '3') }}
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -85,3 +102,24 @@ jobs:
           ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
           ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
         run: python manage.py reconstruir_indice
+
+      - name: Vista previa o limpieza de índices antiguos
+        if: ${{ success() && inputs.modo == 'limpiar_indices' }}
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGSSLMODE: ${{ secrets.PGSSLMODE }}
+          ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
+          ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
+          APLICAR_LIMPIEZA: ${{ inputs.aplicar_limpieza }}
+        shell: bash
+        run: |
+          if [ "$APLICAR_LIMPIEZA" = 'true' ]; then
+            python manage.py limpiar_indices --aplicar
+          else
+            python manage.py limpiar_indices
+          fi

@@ -57,6 +57,46 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Fotos implementadas localmente — 12 de octubre de 2026
+
+El usuario aprobó extraer URLs de fotos de las tres fuentes para preparar el frontend. `Propiedad.fotos` es una lista JSON ordenada, HTTPS y sin duplicados; `foto_portada` devuelve la primera o None. La migración `0012_propiedad_fotos` agrega el campo con listas vacías independientes para filas nuevas/existentes. No se descargan ni alojan archivos y no se indexan imágenes en Elasticsearch.
+
+`DetallesPropiedad.fotos` distingue None (ausente/desconocida/invalidada: conservar), [] (vacía confirmada: limpiar) y lista válida (reemplazar en orden). El importador común ya persiste ese contrato mediante `asdict`, conservando fotos ante errores de ficha o galería. Una baja de operación conserva las fotos. Brega/Avantix leen exclusivamente `#ficha_slider .slides` y `li img.zoomImg`, src/data-src; no logos, iconos, Open Graph ni recomendados. Gaggiotti reutiliza `photos` de Search: image, portada isFrontCover y order. Formato inválido emite advertencia, conserva la galería y no impide refrescar el resto del detalle.
+
+La API agrega `fotos` y `foto_portada` sin consultas adicionales. El HTML de prueba muestra portada con lazy load y reemplazo ante error; no se implementó galería interactiva ni frontend definitivo. Las imágenes las solicita el navegador al servidor original; no se garantiza disponibilidad permanente.
+
+Verificación real de lectura: tres fichas Brega con 18/18/15 fotos, tres Avantix con 10/8/1 y 306 publicaciones Gaggiotti con 4.774 fotos, todas sus galerías verificables. Una portada por fuente respondió 200 image/jpeg sin Referer. Reproducción en SQLite en memoria: seis fichas Tokko y 306 Gaggiotti persistidas, repetidas sin duplicados, full_clean y migración 0011→0012 con conservación de fila previa. Sin modificaciones en Supabase, Elastic ni db.sqlite3.
+
+Pendiente publicar y aplicar 0012 antes de la ingesta: Render ya ejecuta migrate/collectstatic en su build; Actions ahora comprueba `migrate --check` antes de Elasticsearch, sin aplicar migraciones. No requiere nuevas variables, Secrets ni dependencias. Una reconstrucción sola no obtiene fotos: ejecutar ingesta después de migrar. No se hizo push ni despliegue de esta etapa. Ver [contrato, pruebas, límites y publicación](docs/fotos.md).
+
+Validación final de fotos: 182 pruebas, 180 aprobadas y dos integraciones PostGIS omitidas con SQLite. `collectstatic`, validación de Actions, sintaxis y reemplazo JavaScript, migraciones completas y dependencias comprobados. La migración está creada y probada en bases efímeras; sigue pendiente de aplicar en Supabase.
+
+### Bajas por operación y mantenimiento implementados localmente — 12 de octubre de 2026
+
+El usuario aprobó conservar los avisos retirados como inactivos, recuperar el índice sin scraping y limpiar versiones conservando la activa y la anterior. Se reutilizan `en_venta`/`en_alquiler`: la presencia en cada listado determina vigencia, sin deducirla del texto de una tarjeta. Las bajas se aplican después de descargar todos los listados y persistir la fuente; ambas operaciones se concilian en una transacción corta. Se conservan filas, detalles y precios; una reaparición reactiva la misma identidad. Una fuente que solo declara una operación no modifica la otra. No se agrega historial de bajas ni columnas nuevas.
+
+Un fallo fatal anterior impide bajas y conserva escrituras previas. Errores recuperables de ficha no indican retirada. Tarjetas omitidas inhiben todas las bajas de la fuente (`bajas_omitidas=1`, revisar aun con job exitoso). Brega/Avantix rechazan HTML sin tarjetas ni `--NoMoreProperties--` y cualquier repetición de IDs durante la paginación. Gaggiotti ya comprueba totales y páginas. Un listado vacío confirmado sí puede desactivar toda una operación. Tokko no ofrece snapshot/total estable: permanece el riesgo de cambios durante la extracción que no generen duplicados.
+
+HTML/API excluyen inactivas por SQL aunque el índice anterior conserve sus IDs. La reconstrucción indexa solo avisos vigentes en alguna operación y registra en `_meta.grupo7` la versión anterior, finalización y conteo antes de activar el alias. Una base con filas todas inactivas puede activar cero documentos; una base realmente vacía exige `--permitir-vacio`.
+
+El workflow incorpora `modo: ingesta|reconstruir|limpiar_indices`. La programación sigue en ingesta; los modos comparten concurrencia. Reconstruir no hace scraping. La limpieza muestra una vista previa por defecto; `--aplicar` local o `aplicar_limpieza` en Actions ejecutan borrados por nombre concreto. Conserva activo, antecesor registrado, índices con otros aliases, formatos ajenos y versiones del mismo segundo/posteriores. Revisa protecciones antes de cada borrado; no sustituye un bloqueo distribuido para comandos locales. Un activo sin metadatos o un antecesor ausente impide borrar: primero reconstruir con el código nuevo. No hay limpieza destructiva semanal automática.
+
+Esta etapa está local, pendiente de publicación y comprobación productiva. No requiere migraciones, dependencias, variables ni Secrets nuevos; verificar permisos de mapping/borrado de la API key. No se hicieron push, ingesta productiva, reconstrucción ni borrados reales. La vista previa contra Elastic conservó los siete índices existentes; el activo `propiedades-20261012101143-5ac7ed47` tiene 754 documentos y todavía no registra antecesor. Los listados públicos Brega/Avantix pasaron la validación nueva: 136/38 y 250/35 venta/alquiler; dos alquileres Brega candidatos a baja, sin aplicar. Ver [política, recuperación, limpieza y publicación](docs/mantenimiento.md). El historial del ping, vencimiento exacto y continuidad de Elastic siguen pendientes de revisar en sus paneles.
+
+Validación final de mantenimiento: 164 pruebas, 162 aprobadas y dos PostGIS omitidas con SQLite; `actionlint` 1.7.12 sin errores, sin migraciones pendientes ni dependencias rotas. Las pruebas de bajas y borrados usan bases efímeras/Elastic simulado; la comprobación real fue exclusivamente de lectura.
+
+### Filtros, paginación y API JSON implementados localmente — 12 de octubre de 2026
+
+Por solicitud del usuario se implementaron juntos los pasos 3 y 4. Plan ejecutado: definir/validar parámetros comunes, filtrar en PostgreSQL/PostGIS, combinar relevancia antes de paginar, exponer HTML/JSON y verificar/documentar. `propiedades/consultas.py` concentra validación, filtros y paginación; ambas vistas reutilizan ese flujo. `/api/propiedades/` devuelve JSON público de solo lectura; `/propiedades/` queda paginado con navegación mínima y conservación de filtros. No se implementó el frontend definitivo ni el mapa.
+
+Parámetros: `operacion` (venta/alquiler, alquiler si se omite), `tipo` (coincidencia completa `iexact`, sin agrupar categorías), `dormitorios` exactos incluyendo cero, `moneda` ARS/USD, `precio_min`/`precio_max` inclusivos con Decimal, `q` y los geográficos existentes. Precio exige operación y moneda explícitas; moneda sola exige operación explícita. Cantidades desconocidas no equivalen a cero. No se convierten monedas. `pagina` empieza en 1, `por_pagina` tiene valor predeterminado 20 y máximo 100. Entradas inválidas/repetidas: 400; página inexistente: 404; servicios de búsqueda/geografía no disponibles: 503. GET/HEAD; otros métodos: 405.
+
+Sin texto se cuenta y pagina SQL con orden `-actualizada_en,-pk`; con texto se lee el ranking completo de Elasticsearch y se intersectan sus IDs con filtros PostgreSQL/PostGIS en lotes de 500 antes de paginar. Solo se recuperan modelos completos de la página. Sigue pendiente optimizar el coste de leer todos los IDs para volúmenes grandes; no se mantienen snapshots entre páginas del visitante. El JSON incluye totales, enlaces relativos, orden, advertencias geográficas, procedencia y ambas operaciones con precios como cadenas decimales. No se filtra geografía ni precio en Elasticsearch.
+
+Validación: 137 pruebas, 135 aprobadas y dos integraciones PostGIS omitidas con SQLite. Sin migraciones pendientes ni dependencias rotas. Las vistas locales se comprobaron además contra los servicios reales en una transacción de solo lectura: 650 ventas y 121 alquileres recorridos por páginas sin pérdidas/duplicados; 47 coincidencias al combinar Casa/dos dormitorios/USD hasta 200.000/cochera/radio de 2 km con aproximadas, con ranking de las primeras dos páginas y totales PostGIS verificados. Se conservaron las 754 publicaciones, sin ingesta ni escritura en Supabase/Elastic.
+
+Esta etapa está pendiente de publicación y comprobación pública. La autorización de push anterior correspondió a Gaggiotti; no se hizo push ni despliegue de filtros/API. No requiere migraciones, variables, dependencias, Secrets ni reconstruir el índice. Ver [contrato, ejemplos, límites y publicación](docs/api_propiedades.md). La siguiente feature es frontend/mapa, después de publicar esta etapa.
+
 ### Gaggiotti y tolerancia por fuente publicadas y verificadas — 12 de octubre de 2026
 
 El usuario autorizó explícitamente al agente a hacer commit, push a `main` y ejecutar el workflow para publicar Gaggiotti y la tolerancia por fuente. Esta autorización reemplazó para esta etapa el acuerdo anterior de que el usuario haría el push. Código publicado en `a390093`; [workflow manual exitoso](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407), de 03:37:27 a 03:52:17 de Argentina. Las tres fuentes terminaron sin errores de detalle: Avantix actualizó 275, Brega 171 y Gaggiotti creó 306. Brega conserva dos avisos anteriores, conforme a la política de bajas todavía pendiente.
@@ -168,15 +208,16 @@ Al actualizar este contexto, el código contiene:
 
 La conexión y las migraciones hasta `0011` se verificaron en Supabase/PostgreSQL. La revisión de solo lectura del 8 de octubre de 2026 encontró 173 publicaciones: 172 con coordenadas completas, 170 con `ciudad_origen=nominatim_inversa`, 172 con `provincia_origen=nominatim_inversa` y 164 entradas de caché. Estos conteos son una instantánea, no valores esperados fijos ni una validación individual de precisión. Se comprobó además el proveedor con tres puntos: Bella Italia devolvió Bella Italia/Santa Fe; Barrio 30 de Octubre devolvió Rafaela/Santa Fe; Lehmann devolvió Municipio de Lehmann/Santa Fe.
 
-PostGIS, Elasticsearch, formulario textual mínimo, GitHub Actions, tolerancia por fuente y las tres inmobiliarias están publicados y verificados. Supabase contiene 754 publicaciones en la comprobación del 12 de octubre. Todavía no hay filtros de precio/tipo, API JSON, paginación pública ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
+PostGIS, Elasticsearch, formulario textual mínimo, GitHub Actions, tolerancia por fuente y las tres inmobiliarias están publicados y verificados. Supabase contiene 754 publicaciones en la comprobación del 12 de octubre. Filtros de tipo/dormitorios/precio, API JSON y paginación están implementados y probados localmente, pendientes de publicar. No hay frontend definitivo ni mapa. `/health/` ya está desplegado; el ping externo fue creado y falta verificar su historial. Para ejecutar pruebas en PowerShell sin usar Supabase, configurar antes una `DJANGO_SECRET_KEY` de desarrollo:
 
 ```powershell
 $env:DB_ENGINE = "sqlite"
+.\.venv\Scripts\python.exe -X utf8 manage.py collectstatic --noinput
 .\.venv\Scripts\python.exe -X utf8 manage.py test propiedades config
 Remove-Item Env:DB_ENGINE
 ```
 
-El ejemplo supone que no había una variable de sistema `DB_ENGINE` previamente definida en esa terminal; si la había, guardar y restaurar su valor. La selección temporal de SQLite evita crear una base de pruebas en Supabase. También se verificaron ausencia de cambios de modelo sin migración (`makemigrations --check --dry-run`) y dependencias instaladas (`pip check`).
+El ejemplo supone que no había una variable de sistema `DB_ENGINE` previamente definida en esa terminal; si la había, guardar y restaurar su valor. La selección temporal de SQLite evita crear una base de pruebas en Supabase. `collectstatic` prepara el manifiesto utilizado por la plantilla con DEBUG=False; solo genera archivos ignorados en staticfiles/, sin consultar la base. También se verificaron ausencia de cambios de modelo sin migración (`makemigrations --check --dry-run`) y dependencias instaladas (`pip check`).
 
 ## Ejecutar la ingesta local
 
@@ -235,7 +276,7 @@ Preparar desde el comienzo una estructura común para aproximadamente tres inmob
 
 Implementación común actual: cada adaptador expone `nombre`, `operaciones`, `extraer(operacion)` y `extraer_detalles(url)`. `extraer` devuelve objetos `PublicacionNormalizada`, uno por aviso y operación, con precio/moneda de ese listado. `extraer_detalles` devuelve `DetallesPropiedad` con datos opcionales de la ficha; los errores de lectura deben propagarse. El núcleo consolida por identificador dentro de cada fuente y mantiene precios separados. Para incorporar una fuente, implementar ese contrato y registrarla, sin copiar el importador. Brega y Avantix reutilizan los parsers Tokko de listado y ficha; cada módulo conserva URLs, paginación y cualquier interpretación geográfica específica. Avantix interpreta el punto verificado de Google Maps como exacto por decisión del equipo y lo deja sin radio.
 
-Ciudad/provincia y zona se persisten cuando se aportan, sin inferirlas por el foco del proyecto. La reconstrucción completa del índice desde PostgreSQL está implementada y GitHub Actions la ejecuta tras la ingesta; la persistencia sigue concentrada en `guardar_publicacion`. La indexación incremental después de guardar y su recuperación específica siguen pendientes. La política de publicaciones retiradas sigue pendiente.
+Ciudad/provincia y zona se persisten cuando se aportan, sin inferirlas por el foco del proyecto. La reconstrucción completa del índice desde PostgreSQL está implementada y GitHub Actions la ejecuta tras la ingesta; la persistencia sigue concentrada en `guardar_publicacion`. La indexación incremental después de guardar y su recuperación específica siguen pendientes. La política de publicaciones retiradas está confirmada e implementada localmente: conservar la fila y desactivar por operación después de completar la fuente; publicación pendiente. Ver [mantenimiento](docs/mantenimiento.md).
 
 Los datos a contemplar, según lo que realmente proporcione cada fuente, incluyen:
 
@@ -272,14 +313,14 @@ Contemplar el análisis del texto en español y las stopwords, como `para`, `la`
 
 ## Filtros estructurados y combinación de resultados
 
-La búsqueda futura debe combinar texto libre y relevancia con tipo de inmueble, operación, precio mínimo/máximo y ubicación. Dormitorios, ambientes, superficie y otros filtros podrán agregarse según los datos disponibles.
+La búsqueda implementada localmente combina texto libre/relevancia con tipo de inmueble, dormitorios exactos, operación, precio mínimo/máximo, moneda y ubicación. HTML y API JSON comparten filtros y paginación. El contrato está documentado en [API de propiedades](docs/api_propiedades.md). Ambientes, superficie y otros filtros siguen como ampliaciones posibles.
 
 - Elasticsearch encuentra y ordena las coincidencias textuales.
 - PostgreSQL aplica los filtros estructurados y entrega los datos completos.
 - PostGIS aplica los filtros geográficos dentro de PostgreSQL.
 - El backend coordina estos resultados y devuelve propiedades que cumplen todas las condiciones solicitadas, conservando el ranking textual cuando haya una búsqueda de texto.
 
-Ejemplo: `departamento con cochera`, operación alquiler, tipo departamento, precio máximo ARS 700.000 y radio de 2 km desde un punto seleccionado. El backend combina relevancia de Elasticsearch, precio/operación/tipo de PostgreSQL y distancia de PostGIS. Sin texto libre, los filtros deben poder consultar PostgreSQL/PostGIS. La estrategia concreta de coordinación, orden y paginación queda por definir al implementar.
+Ejemplo: `departamento con cochera`, operación alquiler, tipo departamento, precio máximo ARS 700.000 y radio de 2 km desde un punto seleccionado. El backend combina relevancia de Elasticsearch, precio/operación/tipo de PostgreSQL y distancia de PostGIS. Sin texto libre consulta PostgreSQL/PostGIS sin Elasticsearch. La paginación se aplica después de todos los filtros; con texto mantiene el ranking y sin texto ordena por actualización e ID descendentes.
 
 ## Geografía exclusivamente con PostGIS
 
@@ -336,8 +377,8 @@ El despliegue de la segunda fuente comprueba la extensibilidad del importador co
 
 1. **Tolerancia a fallos por fuente: completada y publicada.** Aislamiento probado localmente y workflow publicado/verificado con ejecución exitosa de las tres fuentes. Continúa con las restantes y reconstruye ante éxito parcial, manteniendo el job fallido. Ver [ingesta](docs/ingesta.md).
 2. **Tercera inmobiliaria: completada y publicada.** Gaggiotti ingerida en Supabase, indexada y comprobada en búsquedas públicas. Ver [Gaggiotti](docs/gaggiotti.md).
-3. **Filtros estructurados:** incorporar tipo, dormitorios y precio, manteniendo precio separado por operación y exigiendo moneda para comparaciones coherentes.
-4. **Paginación y API JSON:** definir un contrato único que combine el orden de Elasticsearch con filtros PostgreSQL/PostGIS y permita al futuro frontend consumir resultados paginados.
+3. **Filtros estructurados: implementados localmente.** Tipo, dormitorios y precios inclusivos separados por operación/moneda. Falta publicar y comprobar en Render.
+4. **Paginación y API JSON: implementadas localmente.** HTML y `/api/propiedades/` comparten filtros, totales y orden; publicación pendiente. Ver [contrato](docs/api_propiedades.md).
 5. **Frontend y mapa:** definir e implementar la interfaz después de completar el backend anterior; el mapa debe enviar geometrías o parámetros al backend y no calcular distancias ni consultar directamente Supabase o Elasticsearch.
 
 En paralelo con el primer paso, comprobar el historial del ping y el vencimiento exacto de Elastic Cloud. Estas tareas operativas no reemplazan los cinco pasos funcionales.
@@ -347,12 +388,12 @@ En paralelo con el primer paso, comprobar el historial del ping y el vencimiento
 - Tolerancia por fuente y Gaggiotti publicadas y verificadas el 12 de octubre. No son tareas pendientes; seguir con filtros estructurados.
 - Traslado de datos locales si se desea conservar información que no esté en la ingesta de Supabase; política de intersección de áreas de incertidumbre, polígonos arbitrarios y futuras ampliaciones del esquema común; la representación espacial y los filtros básicos ya están implementados. El proyecto Supabase, conexión y migraciones hasta `0011` están verificados.
 - [X] Workflow y frecuencia en GitHub Actions: lunes a las 00:00 de Argentina, ejecución manual, Secrets, exclusión de simultaneidad, comprobación previa de Elastic e indexación completa posterior verificadas.
-- [ ] Automatización pendiente: recuperación incremental y política de limpieza de versiones físicas anteriores del índice.
-- [ ] Política de publicaciones retiradas y recuperación de errores de indexación (Pendiente).
+- [ ] Indexación/recuperación incremental pendiente. Reconstrucción independiente y limpieza con vista previa implementadas localmente; publicar y comprobar.
+- [X] Política de retirados confirmada: desactivar por operación y conservar. Implementada localmente junto con recuperación completa independiente; pendiente de publicación. Ver [mantenimiento](docs/mantenimiento.md).
 - Comprobación del historial de cron-job.org y del intervalo guardado; `/health/` ya está desplegada y el job fue creado.
-- Ajuste de relevancia y paginación pública. Elasticsearch en Render, combinación con filtros, orden por score y reconstrucción automática posterior a la ingesta ya están implementados.
+- Publicación y comprobación pública de filtros/paginación/API ya implementados localmente; optimización futura del ranking completo y ajuste de relevancia. Elasticsearch en Render y reconstrucción automática posterior a la ingesta ya funcionan.
 - Validación del geocodificador experimental, extracción explícita de ciudad/provincia, auditoría de coordenadas históricas y tratamiento definitivo de ubicaciones ausentes.
-- Tecnología del frontend, mapa y contrato de la API futura.
+- Tecnología del frontend y mapa; la API de propiedades ya tiene contrato implementado, documentado y probado localmente.
 - Registro del vencimiento exacto de la prueba de Elastic Cloud y continuidad posterior; configuración y comprobación de Django en Render con Elasticsearch. El servicio Elastic y su índice ya existen; el despliegue básico con Supabase ya funciona.
 
 Requests y Beautiful Soup ya se usan para Brega. Comprobar primero si las consultas directas permiten obtener los datos de cada nueva fuente; no dar por necesaria la automatización de un navegador. No se ha adoptado React, un framework de scraping adicional, colas de tareas ni microservicios. El despliegue del sitio es un requisito de entrega; Django ya está alojado en Render y no se ha adoptado Vercel.

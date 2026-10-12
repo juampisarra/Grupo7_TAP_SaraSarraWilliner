@@ -2,6 +2,14 @@
 
 Implementado localmente el 11 de octubre de 2026 y publicado el 12 de octubre. El [workflow manual](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407) completó las tres fuentes y la reconstrucción correctamente, sin errores de detalle. El aislamiento ante fallo parcial/total está cubierto por pruebas locales; no se provocó una caída de fuente en producción. No requiere migraciones, nuevas dependencias, variables ni Secrets.
 
+Las fotos se incorporaron después de esta etapa: las tres fuentes entregan galerías en el contrato de detalles y el flujo común las guarda. Requiere `0012` antes de ingerir; None conserva, [] limpia y una lista reemplaza. Actions comprueba migraciones pendientes antes de comenzar. Ver [fotos y publicación](fotos.md).
+
+## Política de bajas nueva (local, pendiente de publicación)
+
+El equipo aprobó desactivar avisos ausentes por operación y conservar sus filas/datos. Se reutilizan `en_venta` y `en_alquiler`; las bajas se aplican después de terminar los listados y la persistencia de una fuente, con ambas operaciones conciliadas juntas. Fallos fatales anteriores impiden bajas; errores de detalle no equivalen a retirada. Si se omitieron tarjetas inválidas, no se aplica ninguna baja de esa fuente y se informa `Bajas omitidas: 1`. Un listado vacío confirmado es válido; HTML desconocido o IDs repetidos durante la paginación Tokko fallan. Ver [política y límites](mantenimiento.md).
+
+El workflow local incorpora modo `reconstruir` para recuperar el índice sin repetir scraping y `limpiar_indices` para vista previa o aplicación explícita. La programación y los códigos de salida siguientes se conservan. No se ejecutaron bajas ni mantenimiento destructivo en producción durante esta etapa.
+
 ## Ejecución
 
 ```powershell
@@ -52,7 +60,7 @@ La protección existente del índice rechaza una base vacía y activa la nueva v
 .\.venv\Scripts\python.exe manage.py reconstruir_indice
 ```
 
-Evitar ingestas locales simultáneas con Actions y escrituras durante una reconstrucción. Repetir una ingesta conserva la identidad por fuente e identificador y no crea duplicados por repetir la carga. No se agregan reintentos automáticos ni se resuelve aquí la política de publicaciones retiradas.
+Evitar ingestas locales simultáneas con Actions y escrituras durante una reconstrucción. Repetir una ingesta conserva la identidad por fuente e identificador y no crea duplicados por repetir la carga. No se agregan reintentos automáticos. La política de publicaciones retiradas se implementó posteriormente de forma local; ver [bajas y mantenimiento](mantenimiento.md).
 
 ## Validación
 

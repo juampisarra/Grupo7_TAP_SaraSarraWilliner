@@ -2,6 +2,8 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 import re
 import unicodedata
+import logging
+from propiedades.fotos import normalizar_fotos
 from .contratos import DetallesPropiedad
 
 from .normalizacion import (
@@ -10,9 +12,11 @@ from .normalizacion import (
     normalizar_tipo
 )
 
+logger = logging.getLogger(__name__)
+
 
 def recorrer_paginas(extraer_pagina, operacion, max_paginas, pausar):
-    """Recorre un listado Tokko hasta un lote vacío o sin IDs nuevos."""
+    """Recorre un listado Tokko; una página repetida no prueba su finalización."""
     propiedades = []
     identificadores_vistos = set()
 
@@ -25,12 +29,9 @@ def recorrer_paginas(extraer_pagina, operacion, max_paginas, pausar):
         for propiedad in lote:
             identificador = propiedad["identificador_fuente"]
             if identificador in identificadores_vistos:
-                continue
+                raise ValueError("Paginación Tokko repetida; no se confirmó el final del listado")
             identificadores_vistos.add(identificador)
             nuevas.append(propiedad)
-
-        if not nuevas:
-            break
 
         propiedades.extend(nuevas)
         pausar(0.5)
@@ -45,6 +46,8 @@ def recorrer_paginas(extraer_pagina, operacion, max_paginas, pausar):
 def leer_listado(html, url_base):
     documento = BeautifulSoup(html, "html.parser")
     tarjetas = documento.select("li[prop-id]")
+    if not tarjetas and documento.get_text(strip=True) != "--NoMoreProperties--":
+        raise ValueError("No se reconoció el listado Tokko ni su marcador de finalización")
 
     propiedades = []
 
@@ -103,7 +106,36 @@ def _etiqueta(texto):
     )
 
 
-def leer_detalles(html, extraer_ubicacion=None):
+def leer_fotos(documento, url_base):
+    galerias = documento.select("#ficha_slider .slides")
+    if not galerias:
+        return None
+    if len(galerias) != 1:
+        logger.warning("Galería Tokko ambigua; se conservan las fotos anteriores")
+        return None
+    galeria = galerias[0]
+    items = galeria.select(":scope > li")
+    # No confundir un cambio de estructura con la retirada de todas las fotos.
+    if (any(hijo.name != "li" for hijo in galeria.find_all(recursive=False))
+            or (not items and galeria.get_text(strip=True))):
+        logger.warning("Galería Tokko no reconocida; se conservan las fotos anteriores")
+        return None
+    urls = []
+    for item in items:
+        imagenes = item.select("img.zoomImg")
+        if len(imagenes) != 1:
+            logger.warning("Foto Tokko no reconocida; se conserva la galería anterior")
+            return None
+        imagen = imagenes[0]
+        urls.append(imagen.get("data-src") or imagen.get("src"))
+    try:
+        return normalizar_fotos(urls, url_base=url_base)
+    except ValueError:
+        logger.warning("Galería Tokko con URL inválida; se conservan las fotos anteriores")
+        return None
+
+
+def leer_detalles(html, extraer_ubicacion=None, *, url_base=""):
     documento = BeautifulSoup(html, "html.parser")
 
     if not documento.select_one(
@@ -193,5 +225,6 @@ def leer_detalles(html, extraer_ubicacion=None):
         dormitorios=cantidad("dormitorios"),
         ambientes=cantidad("ambientes"),
         banos=cantidad("banos"),
+        fotos=leer_fotos(documento, url_base),
         **ubicacion,
     )

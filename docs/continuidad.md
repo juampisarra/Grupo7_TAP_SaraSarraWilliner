@@ -1,8 +1,12 @@
 # Continuidad del proyecto y entrega al compañero
 
+Última etapa local: **fotos de las tres fuentes**, portada y campos nuevos en la API. Antes de ingerir debe aplicarse **0012**; el build de Render ya ejecuta migrate y collectstatic. Actions comprueba migraciones pendientes antes de empezar. Ver [fotos, validación y publicación](fotos.md). Filtros/API, mantenimiento y fotos siguen pendientes de publicar.
+
+Etapa previa local del 12 de octubre: filtros estructurados, paginación y `/api/propiedades/` implementados y probados; todavía no publicados. Para desplegar estos cambios solo hace falta publicar el código y esperar el despliegue de Render. No requiere migraciones nuevas, variables, Secrets, ingesta ni reconstruir Elasticsearch. Ver [contrato, ejemplos y validación](api_propiedades.md). Los estados productivos indicados debajo corresponden a Gaggiotti y las integraciones anteriores.
+
 Estado al 12 de octubre de 2026. Elasticsearch, GitHub Actions y las tres inmobiliarias están publicados y verificados. Esta guía conserva el procedimiento de configuración como referencia de recuperación. Gaggiotti y la tolerancia por fuente se publicaron en `a390093`; el [workflow manual](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407) terminó correctamente. Ver [Gaggiotti](gaggiotti.md) e [ingesta](ingesta.md). El equipo indicó que la evaluación es el martes 13 de octubre.
 
-**Esta etapa está publicada:** el agente hizo commit/push y ejecutó **Ingesta Semanal de Propiedades** con autorización explícita del usuario. Supabase tiene 306 registros de Gaggiotti y 754 publicaciones totales; el índice coincide con la base y las búsquedas públicas conservan relevancia. No hubo variables, Secrets, dependencias ni migraciones nuevas. Las instrucciones siguientes son referencias para configuración y recuperación, no tareas de despliegue todavía pendientes.
+**Gaggiotti y la tolerancia por fuente están publicadas:** el agente hizo commit/push y ejecutó **Ingesta Semanal de Propiedades** con autorización explícita del usuario. Supabase tiene 306 registros de Gaggiotti y 754 publicaciones totales; el índice coincide con la base y las búsquedas públicas conservan relevancia. No hubo variables, Secrets, dependencias ni migraciones nuevas. Las instrucciones siguientes son referencias para configuración y recuperación, no tareas de despliegue todavía pendientes.
 
 ## Estado comprobado
 
@@ -108,6 +112,8 @@ Una prueba manual verifica la URL, pero no demuestra que funcione la programaci�
 
 ## Mantenimiento manual y recuperación
 
+El código local nuevo agrega modos manuales `reconstruir` y `limpiar_indices` al workflow, conservando `ingesta` como predeterminado y programación semanal. Permiten recuperar sin scraping y revisar versiones antes de borrar. No están publicados todavía. La primera reconstrucción con este código registra el antecesor necesario para la limpieza; los índices viejos sin ese dato se conservan. Ver [pasos, política de bajas y protecciones](mantenimiento.md).
+
 GitHub Actions ya ejecuta semanalmente la ingesta general y reconstruye el índice. Cuando sea necesario realizar mantenimiento manual, usar un único entorno configurado contra Supabase y Elastic, sin otra ingesta o reconstrucción simultánea:
 
 ```powershell
@@ -125,10 +131,10 @@ El comando general procesa `avantix`, `brega` y `gaggiotti`, en ese orden. La to
 
 1. **Tolerancia por fuente: completada y publicada.** Aislamiento probado localmente; workflow publicado y comprobado con las tres fuentes exitosas.
 2. **Gaggiotti: completada y publicada.** Primera carga, reconstrucción y resultados públicos verificados el 12 de octubre. Ver [validación y límites](gaggiotti.md).
-3. **Filtros estructurados:** agregar tipo, dormitorios y precio por operación/moneda.
-4. **Paginación y API JSON:** preparar el acceso del futuro frontend.
+3. **Filtros estructurados: implementados localmente.** Tipo, dormitorios y rango de precio por operación/moneda; pendiente publicar y comprobar en Render.
+4. **Paginación y API JSON: implementadas localmente.** Compartidas con HTML y probadas con servicios reales en solo lectura. Publicación pendiente; ver [API](api_propiedades.md).
 5. **Frontend y mapa:** desarrollarlos después de completar el backend.
 
-En paralelo quedan historial del ping, vencimiento/continuidad de Elastic, recuperación incremental, limpieza de versiones del índice y política de avisos retirados.
+En paralelo quedan historial del ping, vencimiento/continuidad de Elastic e indexación/recuperación incremental. Bajas por operación, recuperación completa independiente y limpieza con vista previa están implementadas localmente; falta publicarlas y comprobarlas. Ver [mantenimiento](mantenimiento.md).
 
-La suite local descubrió 117 pruebas: 116 aprobadas y una integración PostGIS omitida al usar SQLite. No hay cambios de modelo pendientes ni dependencias rotas. La validación efímera probó 306 altas y una segunda carga sin duplicados. Después, el workflow productivo del 12 de octubre creó 306 Gaggiotti y reconstruyó los 754 documentos sin errores. Las comprobaciones posteriores fueron de solo lectura: índice completo igual a PostgreSQL, orden público igual a Elasticsearch y filtros públicos iguales a PostGIS. Ver [Gaggiotti](gaggiotti.md) y [validación de tolerancia](ingesta.md).
+La suite final local, incluidas fotos y mantenimiento, descubrió 182 pruebas: 180 aprobadas y dos integraciones PostGIS omitidas al usar SQLite. `actionlint` validó el workflow. La validación de Gaggiotti previa a este mantenimiento había descubierto 117 pruebas (116 aprobadas y una omitida). No hay cambios de modelo sin migración ni dependencias rotas; `0012` está creada y probada, pendiente de aplicar en Supabase. La validación efímera probó 306 altas y una segunda carga sin duplicados. Después, el workflow productivo del 12 de octubre creó 306 Gaggiotti y reconstruyó los 754 documentos sin errores. Las comprobaciones posteriores fueron de solo lectura: índice completo igual a PostgreSQL, orden público igual a Elasticsearch y filtros públicos iguales a PostGIS. Ver [Gaggiotti](gaggiotti.md) y [validación de tolerancia](ingesta.md).

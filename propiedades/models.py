@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+from .fotos import validar_fotos
 
 # Tiene datos de cada propiedad
 class Propiedad(models.Model):
@@ -10,6 +12,8 @@ class Propiedad(models.Model):
         titulo = models.CharField(max_length=500, blank=True)
         descripcion = models.TextField(blank=True)
         caracteristicas = models.TextField(blank=True)
+        # URLs externas en orden de presentación; primera imagen = portada.
+        fotos = models.JSONField(default=list, blank=True, validators=[validar_fotos])
         ciudad = models.CharField(max_length=150, blank=True)
         provincia = models.CharField(max_length=150, blank=True)
         ciudad_origen = models.CharField(max_length=30, blank=True)
@@ -67,6 +71,17 @@ class Propiedad(models.Model):
 
         def __str__(self):
                 return f"{self.fuente}: {self.direccion or self.identificador_fuente}"
+
+        @property
+        def foto_portada(self):
+            return self.fotos[0] if self.fotos else None
+
+        def clean(self):
+            super().clean()
+            # blank=True permite [], pero Django también considera {} vacío y
+            # omite sus validadores de campo. Mantener el contrato de lista.
+            if not isinstance(self.fotos, list):
+                raise ValidationError({"fotos": "Las fotos deben ser una lista de URLs"})
 
 
 class ConsultaLocalidad(models.Model):

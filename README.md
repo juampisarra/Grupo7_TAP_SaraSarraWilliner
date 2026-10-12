@@ -1,8 +1,12 @@
 # Grupo7_TAP_SaraSarraWilliner
 
+Fotos agregadas localmente el 12 de octubre: URLs ordenadas para las tres fuentes, portada, API y muestra mínima en HTML. **Requiere migración `0012` y luego ingesta para cargar fotos**; todavía no está publicado. No agrega servicios, Secrets ni almacenamiento de archivos. Ver [fotos y publicación](docs/fotos.md).
+
+Etapa anterior del 12 de octubre: filtros de tipo/dormitorios/precio por operación y moneda, paginación y `/api/propiedades/` implementados y probados localmente; pendientes de publicar. HTML y JSON comparten relevancia, geografía y totales. Ver [contrato y ejemplos de la API](docs/api_propiedades.md). No requiere migraciones, variables nuevas ni reconstrucción del índice.
+
 Actualización del 12 de octubre: `/health/`, PostGIS, Elasticsearch y el formulario textual mínimo están desplegados. **Brega, Avantix y Gaggiotti están publicadas y verificadas**, junto con la tolerancia a fallos por fuente. El workflow manual terminó correctamente: Supabase tiene 754 publicaciones y Elasticsearch contiene los mismos documentos. Se comprobaron listados, relevancia y filtros geográficos públicos. Ver [Gaggiotti y resultados de validación](docs/gaggiotti.md) y [operación y recuperación de ingesta](docs/ingesta.md). El frontend definitivo y el mapa siguen pendientes. Ver [despliegue](docs/despliegue.md), [PostGIS](docs/postgis.md) y [Elasticsearch](docs/elasticsearch.md).
 
-**Para el compañero que administra Render:** la [guía de continuidad](docs/continuidad.md) conserva la configuración, recuperación y pendientes. El usuario autorizó al agente a publicar esta etapa; `.env` no se sube ni actualiza Render automáticamente y no se necesitaron variables nuevas.
+**Para el compañero que administra Render:** la [guía de continuidad](docs/continuidad.md) conserva la configuración, recuperación y pendientes. El usuario autorizó al agente a publicar Gaggiotti y la tolerancia por fuente; `.env` no se sube ni actualiza Render automáticamente y no se necesitaron variables nuevas.
 
 Trabajo práctico de TAP del Grupo 7 (Sara, Sarra y Williner): un Observatorio Inmobiliario orientado inicialmente a propiedades de Rafaela. Centraliza publicaciones de distintas inmobiliarias para buscar, filtrar y comparar opciones desde una única aplicación, conservando la fuente y el enlace al aviso original.
 
@@ -77,7 +81,7 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler, búsqueda textual mínima por relevancia y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0011` están verificadas en Supabase. Al 12 de octubre hay 173 publicaciones de Brega, 275 de Avantix y 306 de Gaggiotti. El workflow productivo terminó sin errores de detalle y el índice coincide íntegramente con la base. La búsqueda pública conserva el ranking y los filtros espaciales coinciden con PostGIS. La repetición sin duplicados también se probó localmente. Todavía no existen filtros de tipo/dormitorios/precio, API JSON, paginación pública ni mapa. Suite final: 117 pruebas, 116 aprobadas y una integración PostGIS omitida con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
+La conexión y migraciones hasta `0011` están verificadas en Supabase. Al 12 de octubre hay 173 publicaciones de Brega, 275 de Avantix y 306 de Gaggiotti. El workflow productivo terminó sin errores de detalle y el índice coincide íntegramente con la base. La búsqueda pública conserva el ranking y los filtros espaciales coinciden con PostGIS. La repetición sin duplicados también se probó localmente. Filtros de tipo/dormitorios/precio, API JSON y paginación están ahora implementados localmente, pendientes de publicar. El frontend definitivo y el mapa siguen pendientes. Suite actual, incluidas fotos y mantenimiento: 182 pruebas, 180 aprobadas y dos integraciones PostGIS omitidas con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 
@@ -129,11 +133,11 @@ Abrir [el listado local](http://127.0.0.1:8000/propiedades/). El listado muestra
 
 1. Tolerancia por fuente completada y publicada; aislamiento probado localmente y workflow exitoso en producción.
 2. Gaggiotti completada y publicada; carga, índice y resultados públicos verificados el 12 de octubre.
-3. Agregar filtros de tipo, dormitorios y precio por operación/moneda.
-4. Implementar paginación y una API JSON.
+3. Filtros de tipo, dormitorios y precio por operación/moneda implementados y probados localmente; publicar y comprobar.
+4. Paginación y API JSON implementadas y probadas localmente; publicar y comprobar. Ver [API de propiedades](docs/api_propiedades.md).
 5. Desarrollar el frontend y el mapa después del backend.
 
-Siguen pendientes comprobar el historial e intervalo del ping, registrar el vencimiento exacto de Elastic Cloud, validar la geocodificación experimental, tratar publicaciones retiradas y definir recuperación incremental y limpieza de índices físicos anteriores. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
+Bajas por operación, reconstrucción independiente en Actions y limpieza de índices con vista previa están implementadas localmente, pendientes de publicación y comprobación productiva. Ver [mantenimiento](docs/mantenimiento.md). Siguen pendientes comprobar el historial e intervalo del ping, registrar el vencimiento exacto y continuidad de Elastic Cloud, validar la geocodificación experimental e implementar indexación/recuperación incremental. La detección de una misma propiedad publicada por inmobiliarias diferentes tiene un alcance distinto de evitar duplicados en cargas repetidas y aún debe definirse.
 
 ## Contexto para colaborar
 

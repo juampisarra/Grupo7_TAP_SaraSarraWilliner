@@ -48,13 +48,17 @@ class DetallesPropiedad:
     longitud: float | None = None
     ubicacion_aproximada: bool | None = None
     radio_ubicacion_m: float | None = None
+    # None: galería ausente/no verificable; []: vacía confirmada, permite limpiar.
+    fotos: list[str] | None = None
 
 
 class AdaptadorFuente(Protocol):
     nombre: str
     operaciones: tuple[str, ...]
 
-    def extraer(self, operacion: str) -> list[PublicacionNormalizada]: ...
+    def extraer(self, operacion: str) -> list[PublicacionNormalizada]:
+        """Listado completo o excepción; una extracción parcial no autoriza bajas."""
+        ...
 
     def extraer_detalles(self, url_original: str) -> DetallesPropiedad:
         """Una sola solicitud por ficha; campos ausentes: None; errores se propagan."""

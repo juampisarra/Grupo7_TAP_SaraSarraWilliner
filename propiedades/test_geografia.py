@@ -46,6 +46,31 @@ class EntradasGeograficasTests(SimpleTestCase):
 @skipUnless(connection.vendor == "postgresql", "Requiere una base de pruebas con PostGIS")
 @override_settings(SECURE_SSL_REDIRECT=False)
 class PostGISIntegracionTests(TestCase):
+    def test_api_combina_precio_dormitorios_ranking_y_radio_antes_de_paginar(self):
+        from unittest.mock import patch
+
+        dentro = Propiedad.objects.create(fuente="test", identificador_fuente="api-dentro",
+            en_venta=True, tipo="Casa", dormitorios=2, precio_venta=Decimal("100"), moneda_venta="USD",
+            latitud=0, longitud=0, ubicacion_aproximada=False)
+        fuera = Propiedad.objects.create(fuente="test", identificador_fuente="api-fuera",
+            en_venta=True, tipo="Casa", dormitorios=2, precio_venta=Decimal("100"), moneda_venta="USD",
+            latitud=10, longitud=10, ubicacion_aproximada=False)
+        aproximada = Propiedad.objects.create(fuente="test", identificador_fuente="api-aprox",
+            en_venta=True, tipo="Casa", dormitorios=2, precio_venta=Decimal("100"), moneda_venta="USD",
+            latitud=0, longitud=0, ubicacion_aproximada=True, radio_ubicacion_m=400)
+        params = dict(operacion="venta", tipo="Casa", dormitorios="2", moneda="USD", precio_max="100",
+                      latitud="0", longitud="0", radio_m="0", q="casa", por_pagina="1")
+        with patch("propiedades.views.buscar_ids", return_value=[(fuera.pk, 9), (aproximada.pk, 8), (dentro.pk, 7)]):
+            datos = self.client.get("/api/propiedades/", params).json()
+            self.assertEqual(datos["total"], 1)
+            self.assertEqual(datos["resultados"][0]["id"], dentro.pk)
+            params["incluir_aproximadas"] = "1"
+            datos = self.client.get("/api/propiedades/", params).json()
+            self.assertEqual(datos["total"], 2)
+            self.assertEqual(datos["resultados"][0]["id"], aproximada.pk)
+            self.assertTrue(datos["advertencias"])
+            self.assertEqual(self.client.get(datos["siguiente"]).json()["resultados"][0]["id"], dentro.pk)
+
     def test_puntos_limites_precision_y_actualizacion(self):
         exacta = Propiedad.objects.create(fuente="test", identificador_fuente="1",
             latitud=0, longitud=0, ubicacion_aproximada=False, en_alquiler=True)

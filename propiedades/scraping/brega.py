@@ -76,6 +76,7 @@ def leer_detalles(html):
     return leer_detalles_tokko(
         html,
         extraer_ubicacion=leer_ubicacion_mapa,
+        url_base=URL_BASE,
     )
 
 

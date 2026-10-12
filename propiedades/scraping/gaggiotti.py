@@ -17,6 +17,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from .contratos import DetallesPropiedad, PublicacionNormalizada
+from propiedades.fotos import normalizar_fotos
 
 
 URL_BASE = "https://www.gaggiotti.com.ar"
@@ -159,6 +160,28 @@ def leer_caracteristicas(dato):
     return "; ".join(dict.fromkeys(resultado)) or None
 
 
+def leer_fotos(dato):
+    fotos = dato.get("photos")
+    if fotos is None:
+        return None
+    try:
+        if not isinstance(fotos, list) or any(not isinstance(f, dict) for f in fotos):
+            raise ValueError("Estructura inválida")
+        for foto in fotos:
+            if type(foto.get("order")) is not int or foto["order"] < 0:
+                raise ValueError("Orden inválido")
+            if type(foto.get("isFrontCover")) is not bool:
+                raise ValueError("Portada inválida")
+        if sum(f["isFrontCover"] for f in fotos) > 1:
+            raise ValueError("Varias portadas")
+        # Portada explícita primero; después orden publicado y posición original.
+        ordenadas = sorted(fotos, key=lambda f: (not f["isFrontCover"], f["order"]))
+        return normalizar_fotos([f.get("image") for f in ordenadas], url_base=URL_BASE)
+    except ValueError:
+        logger.warning("Gaggiotti: galería no verificable; se conservan las fotos anteriores")
+        return None
+
+
 def leer_detalles(dato):
     identificador(dato)
     return DetallesPropiedad(
@@ -168,6 +191,7 @@ def leer_detalles(dato):
         dormitorios=cantidad(dato.get("suiteAmount")),
         ambientes=cantidad(dato.get("roomAmount")),
         banos=cantidad(dato.get("bathroomAmount")),
+        fotos=leer_fotos(dato),
         **leer_ubicacion(dato), **leer_coordenadas(dato),
     )
 

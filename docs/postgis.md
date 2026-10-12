@@ -18,7 +18,7 @@ En SQLite la migración no crea objetos espaciales. El listado y las pruebas gen
 
 ## Consultas del backend
 
-Los filtros se implementan en `propiedades/geografia.py` y pueden combinarse con venta/alquiler en el listado existente. No hay mapa ni formulario geográfico nuevo. El endpoint sigue devolviendo HTML; no se creó una API JSON de resultados. Los errores de entrada devuelven JSON con estado 400.
+Los filtros se implementan en `propiedades/geografia.py`. La nueva consulta común los combina con operación, tipo, dormitorios, precio y texto, antes de paginar. `/propiedades/` devuelve HTML y `/api/propiedades/` JSON; filtros estructurados, paginación y API están implementados localmente y pendientes de publicar. No hay mapa ni formulario geográfico nuevo. Los errores de entrada devuelven JSON con estado 400. Ver [contrato común](api_propiedades.md).
 
 Radio de dos kilómetros:
 

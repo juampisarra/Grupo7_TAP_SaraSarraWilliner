@@ -2,6 +2,8 @@
 
 El backend usa el ORM de Django con una conexión PostgreSQL mediante `psycopg`. No necesita el SDK de Supabase ni una API key. PostGIS se integró mediante la migración `0011`, aplicada en Supabase; consultar [almacenamiento y filtros geográficos](postgis.md). Elasticsearch está conectado tanto localmente como en Render, y GitHub Actions reconstruye su índice después de la ingesta; ver [índice y búsqueda](elasticsearch.md).
 
+La etapa local de fotos agrega `0012_propiedad_fotos` (lista JSON ordenada de URLs externas). Está pendiente de aplicar en Supabase; las migraciones verificadas en producción siguen hasta `0011`. Ejecutar `migrate` antes de la primera ingesta con este código. La migración conserva filas/campos existentes y comienza con fotos vacías, que se cargan durante ingesta. Ver [fotos](fotos.md).
+
 ## Preparación local
 
 Desde la raíz del proyecto, en PowerShell:

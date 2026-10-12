@@ -9,6 +9,8 @@ import math
 from dataclasses import asdict, dataclass
 
 import requests
+from django.db import transaction
+from django.utils import timezone
 
 from propiedades.models import Propiedad
 from propiedades.enriquecimiento import ORIGEN_INVERSA, completar_localidad
@@ -26,6 +28,9 @@ class ResumenIngesta:
     detalles_verificados: int = 0
     errores_detalle: int = 0
     localidades_completadas: int = 0
+    bajas_venta: int = 0
+    bajas_alquiler: int = 0
+    bajas_omitidas: int = 0
 
 
 def guardar_publicacion(fuente, identificador, valores):
@@ -38,8 +43,12 @@ def guardar_publicacion(fuente, identificador, valores):
 def importar_fuente(adaptador: AdaptadorFuente, informar=lambda mensaje: None, completar_ubicacion=False):
     resumen = ResumenIngesta()
     publicaciones = {}
+    operaciones = tuple(adaptador.operaciones)
+    if not operaciones or len(set(operaciones)) != len(operaciones):
+        raise ValueError("La fuente debe declarar operaciones únicas y no vacías")
+    vistos = {operacion: set() for operacion in operaciones}
     # Descargar todos los listados antes de comenzar a guardar.
-    for operacion in adaptador.operaciones:
+    for operacion in operaciones:
         if operacion not in ("venta", "alquiler"):
             raise ValueError(f"Operación desconocida: {operacion}")
         informar(f"Iniciando extracción de {operacion} ({adaptador.nombre})...")
@@ -49,12 +58,11 @@ def importar_fuente(adaptador: AdaptadorFuente, informar=lambda mensaje: None, c
             if not dato.identificador_fuente or not dato.url_original:
                 resumen.omitidas += 1
                 continue
+            vistos[operacion].add(dato.identificador_fuente)
             valores = publicaciones.setdefault(
                 dato.identificador_fuente,
                 {
                     "direccion": "", "tipo": "", "url_original": dato.url_original,
-                    "en_venta": False, "precio_venta": None, "moneda_venta": "",
-                    "en_alquiler": False, "precio_alquiler": None, "moneda_alquiler": "",
                 },
             )
             if dato.direccion:
@@ -69,8 +77,9 @@ def importar_fuente(adaptador: AdaptadorFuente, informar=lambda mensaje: None, c
                 valor = getattr(dato, campo)
                 if valor is not None:
                     valores[campo] = valor
-            valores["en_venta"] |= dato.en_venta or operacion == "venta"
-            valores["en_alquiler"] |= dato.en_alquiler or operacion == "alquiler"
+            # La pertenencia al listado de la operación es la evidencia de vigencia.
+            # No desactivar otra operación hasta terminar correctamente la fuente.
+            valores[f"en_{operacion}"] = True
             valores[f"precio_{operacion}"] = dato.precio
             valores[f"moneda_{operacion}"] = dato.moneda
 
@@ -152,4 +161,21 @@ def importar_fuente(adaptador: AdaptadorFuente, informar=lambda mensaje: None, c
             resumen.creadas += 1
         else:
             resumen.actualizadas += 1
+    if resumen.omitidas:
+        # Una tarjeta inválida puede ser un aviso vigente que no pudimos identificar.
+        resumen.bajas_omitidas = 1
+        informar("No se aplican bajas: el listado contiene publicaciones omitidas.")
+    else:
+        # Solo después de descargar y persistir toda la fuente. Una interrupción o
+        # error fatal anterior conserva la vigencia previa de los avisos ausentes.
+        # Ambas operaciones se concilian juntas; se conservan precios y fichas.
+        with transaction.atomic():
+            for operacion, identificadores in vistos.items():
+                ausentes = Propiedad.objects.filter(
+                    fuente=adaptador.nombre, **{f"en_{operacion}": True},
+                ).exclude(identificador_fuente__in=identificadores)
+                bajas = ausentes.update(**{
+                    f"en_{operacion}": False, "actualizada_en": timezone.now(),
+                })
+                setattr(resumen, f"bajas_{operacion}", bajas)
     return resumen

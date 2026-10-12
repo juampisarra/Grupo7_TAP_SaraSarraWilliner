@@ -1,14 +1,16 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <title>Propiedades</title>
+    <script src="{% static 'propiedades/fotos.js' %}" defer></script>
 </head>
 <body>
     <h1>Propiedades</h1>
 
     <form method="get">
-        {% for campo, valor in filtros_geograficos.items %}
+        {% for campo, valor in filtros_conservados.items %}
             <input type="hidden" name="{{ campo }}" value="{{ valor }}">
         {% endfor %}
         <label for="operacion">Operación:</label>
@@ -44,7 +46,12 @@
         <button type="submit">Buscar</button>
     </form>
 
-    <p>{{ propiedades|length }} resultados</p>
+    <p>{% if total != None %}{{ total }}{% else %}{{ propiedades|length }}{% endif %} resultados</p>
+    {% if pagina %}<p>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}.</p>{% endif %}
+    <nav aria-label="Paginación">
+        {% if anterior %}<a href="{{ anterior }}">Anterior</a>{% endif %}
+        {% if siguiente %}<a href="{{ siguiente }}">Siguiente</a>{% endif %}
+    </nav>
     {% if texto_busqueda %}<p>Resultados por relevancia para «{{ texto_busqueda }}».</p>{% endif %}
     {% if filtra_centros_aproximados %}
         <p>El filtro utiliza los puntos publicados, incluidos centros de áreas aproximadas
@@ -54,6 +61,18 @@
     {% for propiedad in propiedades %}
         <article>
             <h2>{{ propiedad.tipo|default:"Tipo no informado" }}</h2>
+
+            {% if propiedad.foto_portada %}
+                <figure>
+                    <img src="{{ propiedad.foto_portada }}"
+                         alt="Foto de {{ propiedad.tipo|default:'propiedad' }} — {{ propiedad.direccion }}"
+                         width="320" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+                         data-foto-portada>
+                    <p data-foto-reemplazo hidden>Foto no disponible.</p>
+                </figure>
+            {% else %}
+                <p>Sin fotos disponibles.</p>
+            {% endif %}
 
             <p>
                 {{ propiedad.direccion|default:"Dirección no informada" }}

@@ -3,6 +3,7 @@
 from uuid import uuid4
 
 from django.utils import timezone
+from django.db.models import Q
 from elasticsearch import ApiError, helpers
 from elastic_transport import TransportError
 
@@ -40,11 +41,15 @@ def reconstruir_indice(*, permitir_vacio=False):
         with crear_cliente() as cliente:
             if cliente.indices.exists(index=alias) and not cliente.indices.exists_alias(name=alias):
                 raise BusquedaNoDisponible("El nombre configurado ya corresponde a un índice físico; usar un alias libre")
+            propiedades = Propiedad.objects.filter(Q(en_venta=True) | Q(en_alquiler=True))
+            esperadas = propiedades.count()
+            if not esperadas and not permitir_vacio and not Propiedad.objects.exists():
+                raise BusquedaNoDisponible("La base no contiene propiedades; revisar DB_ENGINE. Para vaciar el índice explícitamente usar --permitir-vacio")
             cliente.indices.create(index=version, mappings=MAPPING)
             correctas = 0
 
             def acciones():
-                for propiedad in Propiedad.objects.order_by("pk").iterator(chunk_size=200):
+                for propiedad in propiedades.order_by("pk").iterator(chunk_size=200):
                     yield {"_index": version, "_id": str(propiedad.pk), "_source": documento(propiedad)}
 
             for ok, _ in helpers.streaming_bulk(cliente, acciones(), chunk_size=200,
@@ -53,12 +58,18 @@ def reconstruir_indice(*, permitir_vacio=False):
                     raise BusquedaNoDisponible("Falló un documento; se conserva el alias anterior. Repetir la reconstrucción")
                 correctas += 1
             cliente.indices.refresh(index=version)
-            if cliente.count(index=version)["count"] != correctas:
+            if correctas != esperadas or cliente.count(index=version)["count"] != correctas:
                 raise BusquedaNoDisponible("El conteo del índice no coincide; se conserva el alias anterior")
-            if not correctas and not permitir_vacio:
-                raise BusquedaNoDisponible("La base no contiene propiedades; revisar DB_ENGINE. Para vaciar el índice explícitamente usar --permitir-vacio")
             # Ambas acciones se procesan atómicamente. No se eliminan índices físicos.
             anteriores = cliente.indices.get_alias(name=alias) if cliente.indices.exists_alias(name=alias) else {}
+            # Conservar evidencia de la versión anterior que atendía búsquedas.
+            # La limpieza no adivina qué reconstrucciones antiguas fueron exitosas.
+            marcado = cliente.indices.put_mapping(index=version, meta={"grupo7": {
+                "alias": alias, "completo": True, "anteriores": list(anteriores),
+                "documentos": correctas,
+            }})
+            if not marcado.get("acknowledged", False):
+                raise BusquedaNoDisponible("No se pudo registrar la versión anterior; se conserva el alias")
             acciones_alias = [
                 {"remove": {"index": anterior, "alias": alias, "must_exist": True}}
                 for anterior in anteriores

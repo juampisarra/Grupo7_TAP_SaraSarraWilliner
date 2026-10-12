@@ -612,7 +612,7 @@ class AdaptadorAvantixTests(SimpleTestCase):
 
     @patch("propiedades.scraping.avantix.time.sleep")
     @patch("propiedades.scraping.avantix.extraer_pagina")
-    def test_recorre_paginas_y_evita_repetidos(
+    def test_recorre_paginas_hasta_final_confirmado(
         self,
         extraer_pagina,
         sleep,
@@ -623,7 +623,7 @@ class AdaptadorAvantixTests(SimpleTestCase):
 
         extraer_pagina.side_effect = [
             [propiedad_1, propiedad_2],
-            [propiedad_2, propiedad_3],
+            [propiedad_3],
             [],
         ]
 
