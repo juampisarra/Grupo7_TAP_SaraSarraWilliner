@@ -7,7 +7,7 @@
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
     <!-- MapLibre dibuja el mapa; el proveedor se configura desde Django. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261013-vistas">
 </head>
 <body>
 <div class="app-container">
@@ -30,6 +30,23 @@
             <button type="submit">🔎 Buscar</button>
         </form>
     </header>
+
+    <div class="map-style-control">
+        <details id="estilos-menu" class="map-style-menu">
+            <summary aria-label="Estilo del mapa: Calles">
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m12 3 9 5-9 5-9-5 9-5Z M3 12l9 5 9-5 M3 16l9 5 9-5" />
+                </svg>
+                <span id="estilo-seleccionado">Calles</span>
+            </summary>
+            <div class="map-style-options" role="group" aria-label="Estilo del mapa">
+                <button type="button" class="map-style-option active" data-estilo-mapa="calles" aria-pressed="true">Calles</button>
+                <button type="button" class="map-style-option" data-estilo-mapa="oscuro" aria-pressed="false">Oscuro</button>
+                <button type="button" class="map-style-option" data-estilo-mapa="satelite" aria-pressed="false">Satélite</button>
+                <p id="estilo-error" class="map-style-error" role="alert" hidden></p>
+            </div>
+        </details>
+    </div>
 
     <div class="status-stack" aria-live="polite">
         <div class="search-error" id="search-error" role="alert" hidden>
@@ -140,7 +157,7 @@
 <script type="module">
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
-    await import("{% static 'propiedades/mapa.js' %}");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261013-vistas");
 </script>
 </body>
 </html>

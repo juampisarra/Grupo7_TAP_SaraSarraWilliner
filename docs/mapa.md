@@ -20,6 +20,20 @@ Después de confirmar MapTiler, el usuario autorizó recuperar colores, tipograf
 
 MapLibre es el motor activo. Con `MAPTILER_API_KEY` configurada, utiliza Streets v4 de MapTiler; sin clave conserva Bright de OpenFreeMap. Django transmite únicamente esta configuración del mapa mediante `json_script`, escapada para evitar inyección HTML. No se requieren paquetes Python, migraciones, scraping ni reconstrucción de Elasticsearch por este cambio.
 
+## Vistas Calles, Oscuro y Satélite
+
+El usuario autorizó terminar el selector el 13 de octubre. Está en la esquina inferior izquierda, por encima del logo y de la atribución, separado del panel de filtros. Su botón oscuro con ícono de capas muestra el nombre de la vista activa. Se cierra al elegir, pulsar Escape o hacer clic afuera. Calles es el mapa predeterminado existente.
+
+Si el selector no aparece tras reiniciar Django, comprobar en el código fuente de la página que exista `estilos-menu`. El usuario confirmó su presencia; las copias locales de plantilla y estáticos también contienen el selector. Se agregó `?v=20261013-vistas` a las direcciones del CSS y JavaScript para que el navegador solicite recursos nuevos en lugar de reutilizar los anteriores. Después de recargar con Ctrl+F5, el usuario confirmó que aparece el botón Calles. Pasaron dos pruebas de plantilla y se verificaron las direcciones versionadas tanto con `DEBUG=True` como con `DEBUG=False`; sigue pendiente la inspección independiente del cambio entre las tres vistas.
+
+Con la clave configurada se usan `streets-v4`, `streets-v4-dark` y `hybrid-v4` de MapTiler. Satélite es imagen aérea con etiquetas de calles. Las tres configuraciones respondieron HTTP 200 y versión 8 con la clave local y origen `http://127.0.0.1:8000`. Las dos primeras contienen Building 3D desde zoom 15; Hybrid no trae capa building. El controlador conserva la definición de la fuente Planet v4 de Calles y la agrega a Satélite con una única extrusión, sin recurrir a OpenFreeMap ni modificar coordenadas. Esta vista solicita también las teselas de edificios de MapTiler. El respaldo de 6 m sigue siendo ilustrativo cuando falta altura.
+
+Cambiar la vista conserva cámara (centro, zoom, inclinación y rotación), avisos, ficha y filtros, y no consulta la API de propiedades ni dispara ingesta. La etiqueta cambia después de validar y aplicar el nuevo estilo. Un fallo HTTP/JSON conserva el fondo anterior; la solicitud tiene cancelación independiente y permite reintentar. Sin clave, Calles conserva Bright de OpenFreeMap y Oscuro/Satélite quedan deshabilitados. La opción satelital utiliza la misma clave, sin nuevos Secrets o paquetes.
+
+Pruebas Node: Calles→Oscuro→Satélite→Calles, nombre y selección, conservación de cámara/filtros/punto/avisos, edificios satelitales sin duplicación, Escape, fallos y clave ausente. Pasaron 25 pruebas Django de consultas/plantilla, sintaxis y estáticos. La revisión visual de este nuevo selector sigue pendiente: la herramienta del navegador rechazó el acceso a la página local. No se intentó eludir el bloqueo. Los cambios están locales; la publicación sigue a cargo del usuario.
+
+Al probar en el navegador, verificar las tres vistas en el mismo sector y zoom (al menos 15), el nombre del botón, los edificios sobre Satélite y su atribución. Comprobar además el menú en celular y seleccionar una propiedad después de cambiar el fondo.
+
 ## Configurar MapTiler
 
 MapLibre dibuja el mapa y MapTiler aporta sus datos. El estilo es `https://api.maptiler.com/maps/streets-v4/style.json`, conforme a la [integración oficial con MapLibre](https://docs.maptiler.com/maplibre/examples/how-to-use-maplibre/). La biblioteca, los filtros y los datos de propiedades permanecen separados del proveedor cartográfico.

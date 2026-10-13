@@ -57,6 +57,16 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Selector de vistas en una esquina — 13 de octubre de 2026
+
+El usuario autorizó al agente a terminar los cambios que estaba aplicando manualmente. El selector quedó separado del panel de filtros, en la esquina inferior izquierda del mapa y por encima del logo y la atribución. Usa un botón oscuro con ícono de capas y el nombre de la vista activa: Calles (predeterminada), Oscuro o Satélite. Mantener el selector compacto; Escape y el clic afuera cierran el menú. Estos cambios siguen locales, sin commit, push ni despliegue.
+
+El usuario informó que el selector no aparecía después de reiniciar Django y confirmó que `estilos-menu` sí estaba en el código fuente recibido. Se comprobaron la plantilla efectiva, `DEBUG=True` y las copias actuales de CSS y JavaScript en este proyecto. La plantilla agrega `?v=20261013-vistas` a ambos recursos para solicitar una URL nueva y evitar reutilizar la caché de la versión anterior. Después de recargar con Ctrl+F5, el usuario confirmó que el botón Calles aparece. Pasaron las dos pruebas de plantilla ejecutadas para esta corrección y se verificaron las direcciones versionadas en desarrollo y producción. Esta confirmación del usuario no reemplaza una inspección independiente del cambio entre las tres vistas.
+
+Con clave de MapTiler usa `streets-v4`, `streets-v4-dark` y `hybrid-v4` (imágenes satelitales con etiquetas), conservando cámara, marcadores, ficha, punto y filtros. Las tres configuraciones respondieron HTTP 200 con la clave local y el origen localhost. Calles y Oscuro traen Building 3D de Planet v4; Hybrid no trae edificios. Para Satélite se conserva y reutiliza la definición de la fuente Planet v4 de Calles, del mismo proveedor, agregando una sola capa de extrusión. No cambiar a los estilos de OpenFreeMap para oscurecer el mapa de MapTiler: su cobertura de edificios es distinta. Las alturas de respaldo siguen siendo ilustrativas y no identifican las propiedades.
+
+El controlador valida la respuesta del estilo antes de reemplazar el fondo; ante fallo mantiene la vista y el nombre anteriores, muestra un mensaje y permite reintentar. Las solicitudes tienen cancelación independiente de la búsqueda de propiedades. Sin clave, Calles conserva OpenFreeMap y las otras vistas quedan deshabilitadas. No exige nuevas variables, migraciones, ingesta ni indexación. Pruebas Node verifican las tres vistas, etiqueta activa, cámara/filtros/coordenadas, fuente de edificios satelital sin duplicación, cierre, fallo y ausencia de clave. Pasaron 25 pruebas Django de consultas/plantilla, sintaxis y estáticos. La revisión visual real de este nuevo selector sigue pendiente: la herramienta del navegador rechazó el acceso a la página local y no se intentaron alternativas que eludieran ese bloqueo. Ver [vistas y validación](docs/mapa.md).
+
 El 13 de octubre, por pedido del usuario, se retiró de la ficha del mapa el enlace fijo «Ubicaciones: fuentes originales / OpenStreetMap» y su estilo sin uso. La ficha conserva la inmobiliaria, el aviso original y la precisión de ubicación; el mapa conserva su atribución cartográfica. La mención de OpenStreetMap para ubicaciones geocodificadas sigue dentro del mensaje de precisión.
 
 ### Burbujas en columna lateral — 13 de octubre de 2026

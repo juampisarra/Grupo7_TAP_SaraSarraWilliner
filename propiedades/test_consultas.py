@@ -258,3 +258,13 @@ class ConsultaPropiedadesTests(TestCase):
         respuesta = self.client.get("/propiedades/mapa/")
         self.assertContains(respuesta, "Sin tipos disponibles")
         self.assertNotContains(respuesta, "data-filter-tipo=")
+
+    def test_selector_de_vistas_es_independiente_del_panel_de_filtros(self):
+        respuesta = self.client.get('/propiedades/mapa/')
+        self.assertContains(respuesta, 'id="estilos-menu"', count=1)
+        for nombre in ('calles', 'oscuro', 'satelite'):
+            self.assertContains(respuesta, f'data-estilo-mapa="{nombre}"', count=1)
+        self.assertContains(respuesta, 'id="estilo-seleccionado">Calles</span>')
+        html = respuesta.content.decode()
+        self.assertLess(html.index('id="estilos-menu"'), html.index('id="filter-dock"'))
+        self.assertNotContains(respuesta, 'data-estilo-mapa="positron"')

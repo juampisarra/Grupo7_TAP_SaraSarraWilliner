@@ -39,6 +39,10 @@ function entorno() {
     const porId = id => { if (!elementos.has(id)) elementos.set(id, new Elemento()); return elementos.get(id); };
     const tipos = ['Casa','Campo','Nave Industrial'].map(tipo => { const b = new Elemento('button'); b.dataset.filterTipo = tipo; return b; });
     const comodidades = ['Cochera','Patio'].map(tipo => { const b = new Elemento('button'); b.dataset.filterCaracteristica = tipo; return b; });
+    const estilos = ['calles', 'oscuro', 'satelite'].map(nombre => {
+        const b = new Elemento('button'); b.dataset.estiloMapa = nombre; return b;
+    });
+    const eventosDocumento = {};
     const mapa = {
         eventos: {}, zoom: 19, on(nombre, fn) { this.eventos[nombre] = fn; },
         latLngToContainerPoint: punto => ({ x: punto[1] * 100000, y: punto[0] * 100000 }),
@@ -66,10 +70,10 @@ function entorno() {
         openOn() { return this; }, addTo() { return this; }, remove() { this.eliminado = true; },
     });
     const contexto = {
-        document: { readyState: 'loading', addEventListener() {}, getElementById: porId,
+        document: { readyState: 'loading', addEventListener(nombre, fn) { eventosDocumento[nombre] = fn; }, getElementById: porId,
             createElement: tag => new Elemento(tag),
-            querySelector() { return null; },
-            querySelectorAll(selector) { return selector === '[data-filter-tipo]' ? tipos : selector === '[data-filter-caracteristica]' ? comodidades : []; } },
+            querySelector(selector) { return selector === '#estilos-menu summary' ? porId('estilos-summary') : null; },
+            querySelectorAll(selector) { return selector === '[data-filter-tipo]' ? tipos : selector === '[data-filter-caracteristica]' ? comodidades : selector === '[data-estilo-mapa]' ? estilos : []; } },
         window: { location: { origin: 'http://localhost' } }, URL, URLSearchParams, AbortController,
         setTimeout, clearTimeout, console,
         L: { map: () => mapa, control: { zoom: () => ({ addTo() {} }) },
@@ -85,7 +89,7 @@ function entorno() {
     let codigo = fs.readFileSync('propiedades/static/propiedades/mapa.js', 'utf8');
     codigo = codigo.replace(/\}\)\(\);\s*$/, 'globalThis.prueba = { state, MapManager, CardManager, PropertyApiClient, UI, crearParametros, agruparMarcadores, formatearPrecio, iconoTipo }; })();');
     vm.runInNewContext(codigo, contexto);
-    return { ...contexto.prueba, contexto, elementos, marcadores, tipos, comodidades, mapa, porId };
+    return { ...contexto.prueba, contexto, elementos, marcadores, tipos, comodidades, estilos, eventosDocumento, mapa, porId };
 }
 const base = {
     latitud: -31.25, longitud: -61.49, tipo: 'Casa', direccion: 'Necochea 142', fuente: 'Gaggiotti',
@@ -344,6 +348,92 @@ async function main() {
     assert.equal(existente.visibilidad.valor, 'visible');
     assert.equal(existente.mapa.source, undefined);
     assert.equal(existente.mapa.capa, undefined, 'No duplica el 3D que ya contiene Streets v4');
+
+    const selector = entorno();
+    selector.porId('map').dataset.engine = 'maplibre';
+    selector.porId('map-config').textContent = JSON.stringify({ maptilerApiKey: 'prueba' });
+    const fuentePlanet = { type: 'vector', url: 'https://api.maptiler.com/tiles/planet-v4/tiles.json?key=prueba' };
+    const calles = { version: 8, sources: { maptiler_planet_v4: fuentePlanet }, layers: [capaBase,
+        { ...capaBase, id: 'Building 3D', type: 'fill-extrusion' }] };
+    const oscuro = JSON.parse(JSON.stringify(calles));
+    const satelite = { version: 8, sources: { satellite: { type: 'raster', tiles: ['https://api.maptiler.com/tiles/satellite/{z}/{x}/{y}.jpg?key=prueba'] } },
+        layers: [{ id: 'satellite', source: 'satellite', type: 'raster' }] };
+    selector.mapa.estilo = JSON.parse(JSON.stringify(calles));
+    selector.mapa.getStyle = () => selector.mapa.estilo;
+    selector.mapa.getLayer = id => selector.mapa.estilo.layers.find(c => c.id === id);
+    selector.mapa.getSource = id => selector.mapa.estilo.sources[id];
+    selector.mapa.addSource = (id, datos) => { selector.mapa.estilo.sources[id] = datos; };
+    selector.mapa.addLayer = capa => selector.mapa.estilo.layers.push(capa);
+    selector.mapa.setLayoutProperty = () => {};
+    selector.mapa.getPitch = () => 45;
+    selector.mapa.getBearing = () => -17;
+    selector.mapa.jumpTo = camara => { selector.mapa.camara = camara; };
+    selector.mapa.aplicaciones = 0;
+    selector.mapa.setStyle = (estilo, opciones) => {
+        selector.mapa.aplicaciones++;
+        assert.equal(opciones.diff, false);
+        selector.mapa.estilo = estilo;
+        selector.mapa.eventos['style.load']();
+    };
+    const consultasEstilo = [];
+    selector.contexto.fetch = async (url) => {
+        consultasEstilo.push(url);
+        const mapa = new URL(url).pathname.split('/')[2];
+        assert.equal(new URL(url).hostname, 'api.maptiler.com');
+        assert.equal(new URL(url).searchParams.get('key'), 'prueba');
+        return respuesta(JSON.parse(JSON.stringify({ 'streets-v4': calles, 'streets-v4-dark': oscuro, 'hybrid-v4': satelite }[mapa])));
+    };
+    selector.MapManager.init(); selector.UI.init();
+    selector.state.propiedades = [{ ...base, id: 800 }];
+    selector.state.propiedadSeleccionada = selector.state.propiedades[0];
+    selector.state.punto = { lat: 0, lng: 0 }; selector.state.radio = 2000;
+    selector.state.tipo = 'Casa'; selector.state.texto = 'con patio';
+    const estadoBusqueda = JSON.stringify(selector.crearParametros().toString());
+    const datosAntes = JSON.stringify(selector.state.propiedades);
+    assert.equal(selector.porId('estilo-seleccionado').textContent, 'Calles');
+    selector.porId('estilos-menu').open = true;
+    await selector.estilos[1].eventos.click();
+    assert.equal(selector.porId('estilo-seleccionado').textContent, 'Oscuro');
+    assert.equal(selector.estilos[1].getAttribute('aria-pressed'), 'true');
+    assert.equal(selector.porId('estilos-menu').open, false);
+    assert.equal(selector.mapa.estilo.layers.filter(c => c.type === 'fill-extrusion').length, 1);
+    await selector.estilos[2].eventos.click();
+    assert.equal(selector.porId('estilo-seleccionado').textContent, 'Satélite');
+    assert.equal(selector.porId('estilos-summary').getAttribute('aria-label'), 'Estilo del mapa: Satélite');
+    assert.deepEqual(JSON.parse(JSON.stringify(selector.mapa.getSource('observatorio-planet-v4'))), fuentePlanet,
+        'Satélite conserva los polígonos de MapTiler Planet v4');
+    const extrusiones = selector.mapa.estilo.layers.filter(c => c.type === 'fill-extrusion');
+    assert.equal(extrusiones.length, 1);
+    assert.equal(extrusiones[0].source, 'observatorio-planet-v4');
+    selector.MapManager.agregarEdificios();
+    assert.equal(selector.mapa.estilo.layers.filter(c => c.type === 'fill-extrusion').length, 1, 'No duplica los edificios al repetir style.load');
+    await selector.estilos[0].eventos.click();
+    assert.equal(selector.porId('estilo-seleccionado').textContent, 'Calles');
+    assert.equal(selector.mapa.estilo.layers.filter(c => c.type === 'fill-extrusion').length, 1);
+    assert.deepEqual(JSON.parse(JSON.stringify(selector.mapa.camara)), { center: { lat: -31.25, lng: -61.49 }, zoom: 19, pitch: 45, bearing: -17 });
+    assert.equal(JSON.stringify(selector.crearParametros().toString()), estadoBusqueda, 'Cambiar de vista no altera filtros ni punto');
+    assert.equal(JSON.stringify(selector.state.propiedades), datosAntes, 'Cambiar de vista conserva datos y coordenadas');
+    assert.equal(selector.state.propiedadSeleccionada.id, 800);
+    assert.equal(consultasEstilo.length, 3, 'Cambiar el fondo no consulta la API de propiedades');
+    selector.porId('estilos-menu').open = true;
+    selector.eventosDocumento.keydown({ key: 'Escape' });
+    assert.equal(selector.porId('estilos-menu').open, false);
+    const mapaAntesError = selector.mapa.estilo;
+    selector.contexto.fetch = async () => ({ ok: false, status: 403 });
+    assert.equal(await selector.MapManager.cambiarEstilo('oscuro'), false);
+    assert.equal(selector.mapa.estilo, mapaAntesError, 'Un fallo de MapTiler conserva el fondo anterior');
+    assert.equal(selector.porId('estilo-seleccionado').textContent, 'Calles');
+    assert.equal(selector.porId('estilo-error').hidden, false);
+    assert.equal(selector.estilos[1].disabled, false, 'Permite reintentar después del fallo');
+
+    const sinClave = entorno();
+    sinClave.porId('map').dataset.engine = 'maplibre';
+    sinClave.MapManager.init(); sinClave.UI.init();
+    assert.equal(sinClave.estilos[0].disabled, false);
+    assert.equal(sinClave.estilos[1].disabled, true);
+    assert.equal(sinClave.estilos[2].disabled, true);
+    assert.equal(await sinClave.MapManager.cambiarEstilo('satelite'), false);
+    assert.equal(sinClave.porId('estilo-seleccionado').textContent, 'Calles');
     console.log('OK: coordenadas, agrupación, búsqueda y MapLibre con OpenFreeMap/MapTiler y edificios sin fuentes duplicadas.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

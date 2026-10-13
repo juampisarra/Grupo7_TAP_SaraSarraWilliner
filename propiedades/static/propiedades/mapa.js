@@ -12,6 +12,7 @@
         punto: null, radio: 1000, incluirAproximadas: false, seleccionandoPunto: false,
         propiedades: [], total: 0, propiedadSeleccionada: null, fotoIndex: 0,
         abortController: null,
+        estiloMapa: 'calles',
     };
     const RAFAELA = [-31.253, -61.491];
     const RADIOS = [500, 1000, 2000];
@@ -156,6 +157,10 @@
         static popup = null;
         static grupoExpandido = null;
         static usaMapTiler = false;
+        static estiloInicial = null;
+        static usaMapTilerInicial = false;
+        static fuenteEdificiosMapTiler = null;
+        static solicitudEstilo = null;
 
         static init() {
             this.esMapLibre = document.getElementById('map').dataset.engine === 'maplibre';
@@ -167,13 +172,15 @@
                 const estilo = this.usaMapTiler
                     ? `https://api.maptiler.com/maps/streets-v4/style.json?key=${encodeURIComponent(config.maptilerApiKey)}`
                     : ESTILO_OPENFREEMAP;
+                this.estiloInicial = estilo;
+                this.usaMapTilerInicial = this.usaMapTiler;
                 this.map = new gl.Map({
                     container: 'map', style: estilo,
                     center: [RAFAELA[1], RAFAELA[0]], zoom: 15.3, pitch: 45, bearing: -17,
                     canvasContextAttributes: { antialias: true },
                 });
                 this.map.addControl(new gl.NavigationControl(), 'bottom-right');
-                this.map.on('load', () => this.agregarEdificios());
+                this.map.on('style.load', () => this.agregarEdificios());
                 if (this.usaMapTiler) this.agregarLogoMapTiler();
             } else {
                 this.map = L.map('map', { center: RAFAELA, zoom: 14, zoomControl: false });
@@ -191,6 +198,62 @@
             this.map.on('moveend', () => this.renderizarMarcadores(state.propiedades));
             this.map.on('movestart', () => this.cerrarPopup());
             if (!this.esMapLibre) this.map.on('zoomend', () => this.renderizarMarcadores(state.propiedades));
+        }
+        static async cambiarEstilo(nombre) {
+            const mapas = { calles: 'streets-v4', oscuro: 'streets-v4-dark', satelite: 'hybrid-v4' };
+            if (!this.esMapLibre || !Object.hasOwn(mapas, nombre)) return false;
+            if (nombre === state.estiloMapa) return true;
+            if (!this.usaMapTilerInicial) {
+                UI.errorEstilo('Esta vista no está disponible en este momento.');
+                return false;
+            }
+            this.solicitudEstilo?.abort();
+            const controller = new AbortController();
+            this.solicitudEstilo = controller;
+            UI.estilosCargando(true);
+            UI.errorEstilo('');
+            try {
+                // Validar el estilo antes de reemplazar el fondo que está funcionando.
+                const url = new URL(this.estiloInicial);
+                url.pathname = '/maps/' + mapas[nombre] + '/style.json';
+                const cargar = async (direccion) => {
+                    const respuesta = await fetch(direccion, { signal: controller.signal });
+                    if (!respuesta.ok) throw new Error('No pudimos cargar esa vista. Volvé a intentar.');
+                    const estilo = await respuesta.json();
+                    if (estilo.version !== 8 || !Array.isArray(estilo.layers) || !estilo.sources) {
+                        throw new Error('No pudimos cargar esa vista. Volvé a intentar.');
+                    }
+                    return estilo;
+                };
+                const estilo = await cargar(url.href);
+                if (controller.signal.aborted || this.solicitudEstilo !== controller) return false;
+                this.recordarFuenteEdificios(this.map.getStyle());
+                if (nombre === 'satelite' && !this.fuenteEdificiosMapTiler) {
+                    this.recordarFuenteEdificios(await cargar(this.estiloInicial));
+                }
+                if (controller.signal.aborted || this.solicitudEstilo !== controller) return false;
+                const camara = { center: this.map.getCenter(), zoom: this.map.getZoom(),
+                    pitch: this.map.getPitch(), bearing: this.map.getBearing() };
+                this.cerrarPopup();
+                this.map.setStyle(estilo, { diff: false });
+                this.map.jumpTo(camara);
+                state.estiloMapa = nombre;
+                UI.actualizarEstilo();
+                return true;
+            } catch (error) {
+                if (!controller.signal.aborted && this.solicitudEstilo === controller) {
+                    UI.errorEstilo('No pudimos cargar esa vista. Volvé a intentar.');
+                }
+                return false;
+            } finally {
+                if (this.solicitudEstilo === controller) UI.estilosCargando(false);
+            }
+        }
+        static recordarFuenteEdificios(estilo) {
+            if (!this.usaMapTiler) return;
+            const capa = estilo?.layers?.find(c => c['source-layer'] === 'building' && c.source);
+            const fuente = estilo?.sources?.[capa?.source];
+            if (fuente?.type === 'vector') this.fuenteEdificiosMapTiler = { ...fuente };
         }
         static agregarLogoMapTiler() {
             // El plan Free exige mostrar el logo además de la atribución del mapa.
@@ -216,21 +279,27 @@
         }
         static agregarEdificios() {
             if (this.map.getLayer('observatorio-edificios')) return;
-            const capas = this.map.getStyle().layers;
+            const estilo = this.map.getStyle();
+            const capas = estilo.layers;
+            this.recordarFuenteEdificios(estilo);
             const existente = capas.find((capa) => capa.type === 'fill-extrusion' && capa['source-layer'] === 'building');
             if (existente) {
                 this.map.setLayoutProperty(existente.id, 'visibility', 'visible');
                 return;
             }
-            let fuente = 'observatorio-edificios';
-            if (this.usaMapTiler) {
-                // Reutilizar el origen del estilo: no cargar edificios de OpenFreeMap
-                // sobre MapTiler ni duplicar las solicitudes de sus teselas.
-                const edificios = capas.find((capa) => capa['source-layer'] === 'building' && capa.source);
-                if (!edificios) return;
-                fuente = edificios.source;
-            } else {
-                this.map.addSource(fuente, { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
+            const edificios = capas.find(c => c['source-layer'] === 'building' && c.source);
+            let fuente = edificios?.source;
+            if (!fuente) {
+                if (this.usaMapTiler) {
+                    // Satélite trae imágenes y etiquetas, sin polígonos de edificios.
+                    // Reutilizar Planet v4 de Calles, del mismo proveedor y con su clave.
+                    if (!this.fuenteEdificiosMapTiler) return;
+                    fuente = 'observatorio-planet-v4';
+                    if (!this.map.getSource(fuente)) this.map.addSource(fuente, this.fuenteEdificiosMapTiler);
+                } else {
+                    fuente = 'observatorio-edificios';
+                    this.map.addSource(fuente, { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
+                }
             }
             const etiqueta = capas.find((capa) => capa.type === 'symbol' && capa.layout?.['text-field']);
             this.map.addLayer({
@@ -491,6 +560,16 @@
     class UI {
         static debounce = null;
         static init() {
+            document.querySelectorAll('[data-estilo-mapa]').forEach((btn) => {
+                btn.addEventListener('click', async () => {
+                    if (btn.disabled || btn.classList.contains('active')) return;
+                    if (await MapManager.cambiarEstilo(btn.dataset.estiloMapa)) {
+                        document.getElementById('estilos-menu').open = false;
+                    }
+                });
+            });
+            this.actualizarEstilo();
+            this.estilosCargando(false);
             ['alquiler', 'venta'].forEach((operacion) => document.getElementById('btn-op-' + operacion).addEventListener('click', () => {
                 if (state.operacion === operacion) return;
                 state.operacion = operacion; state.precioMin = ''; state.precioMax = '';
@@ -534,12 +613,14 @@
             document.getElementById('btn-reintentar').addEventListener('click', () => this.buscar());
             document.addEventListener('keydown', (e) => {
                 if (e.key !== 'Escape') return;
-                document.getElementById('tipos-menu').open = false;
-                document.getElementById('mas-filtros').open = false;
-                state.seleccionandoPunto = false; this.actualizarPunto(); CardManager.cerrar(); MapManager.cerrarPopup();
+                ['tipos-menu', 'mas-filtros', 'estilos-menu'].forEach(id => {
+                    document.getElementById(id).open = false;
+                });
+                state.seleccionandoPunto = false;
+                this.actualizarPunto(); CardManager.cerrar(); MapManager.cerrarPopup();
             });
             document.addEventListener('click', (e) => {
-                ['tipos-menu', 'mas-filtros'].forEach((id) => {
+                ['tipos-menu', 'mas-filtros', 'estilos-menu'].forEach((id) => {
                     const menu = document.getElementById(id); if (!menu.contains(e.target)) menu.open = false;
                 });
             });
@@ -548,6 +629,24 @@
                     document.documentElement.style.setProperty('--dock-height', entrada.target.getBoundingClientRect().height + 'px');
                 }).observe(document.getElementById('filter-dock'));
             }
+        }
+        static actualizarEstilo() {
+            const nombres = { calles: 'Calles', oscuro: 'Oscuro', satelite: 'Satélite' };
+            document.getElementById('estilo-seleccionado').textContent = nombres[state.estiloMapa];
+            document.querySelector('#estilos-menu summary')?.setAttribute('aria-label', 'Estilo del mapa: ' + nombres[state.estiloMapa]);
+            document.querySelectorAll('[data-estilo-mapa]').forEach(btn => this.activar(btn, btn.dataset.estiloMapa === state.estiloMapa));
+        }
+        static estilosCargando(cargando) {
+            document.getElementById('estilos-menu').setAttribute('aria-busy', String(cargando));
+            document.querySelectorAll('[data-estilo-mapa]').forEach(btn => {
+                const disponible = MapManager.esMapLibre && (btn.dataset.estiloMapa === 'calles' || MapManager.usaMapTilerInicial);
+                btn.disabled = cargando || !disponible;
+                btn.title = disponible ? '' : 'Vista no disponible en este momento';
+            });
+        }
+        static errorEstilo(texto) {
+            const aviso = document.getElementById('estilo-error');
+            aviso.textContent = texto; aviso.hidden = !texto;
         }
         static seleccionarTipo(tipo) {
             state.tipo = tipo;
