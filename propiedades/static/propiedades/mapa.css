@@ -312,6 +312,23 @@ html, body {
     gap: 6px;
 }
 
+.filter-group--tipos {
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+.filter-group--tipos .filter-chip {
+    white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+    .filter-group--tipos {
+        flex-wrap: nowrap;
+        flex-shrink: 0;
+        max-width: none;
+    }
+}
+
 .filter-group-title {
     font-size: 11px;
     font-weight: 800;
@@ -898,4 +915,13 @@ html, body {
     .card-media {
         height: 180px;
     }
+}
+/* Selección de avisos con un mismo punto, sin desplazar sus coordenadas. */
+.shared-location-option {
+    display: block;
+    width: 100%;
+    text-align: left;
+    margin: 6px 0;
+    padding: 8px;
+    cursor: pointer;
 }

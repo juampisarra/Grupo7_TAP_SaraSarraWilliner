@@ -1,5 +1,7 @@
 # Continuidad del proyecto y entrega al compañero
 
+**Estado actual — 12 de octubre:** API paginada con fotos y mapa públicos comprobados; Supabase tiene `0012` aplicada. La nueva mejora de coordenadas está local y requiere **0013_evidencia_coordenadas** antes de usar el código nuevo. Incluye diagnóstico, consulta con caché, aplicación explícita, reversión y agrupación de puntos; ver [guía y publicación](geocodificacion.md). Las secciones anteriores de preparación que siguen conservan su estado histórico.
+
 Última etapa local: **fotos de las tres fuentes**, portada y campos nuevos en la API. Antes de ingerir debe aplicarse **0012**; el build de Render ya ejecuta migrate y collectstatic. Actions comprueba migraciones pendientes antes de empezar. Ver [fotos, validación y publicación](fotos.md). Filtros/API, mantenimiento y fotos siguen pendientes de publicar.
 
 Etapa previa local del 12 de octubre: filtros estructurados, paginación y `/api/propiedades/` implementados y probados; todavía no publicados. Para desplegar estos cambios solo hace falta publicar el código y esperar el despliegue de Render. No requiere migraciones nuevas, variables, Secrets, ingesta ni reconstruir Elasticsearch. Ver [contrato, ejemplos y validación](api_propiedades.md). Los estados productivos indicados debajo corresponden a Gaggiotti y las integraciones anteriores.

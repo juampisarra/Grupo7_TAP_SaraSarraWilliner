@@ -1,5 +1,7 @@
 # PostGIS y filtros geográficos
 
+**Estado actual — 12 de octubre:** API paginada con fotos y mapa públicos comprobados; Supabase tiene `0012` aplicada. La nueva mejora de coordenadas está local y requiere **0013_evidencia_coordenadas** antes de usar el código nuevo. Incluye diagnóstico, consulta con caché, aplicación explícita, reversión y agrupación de puntos; ver [guía y publicación](geocodificacion.md). Las secciones anteriores de preparación que siguen conservan su estado histórico.
+
 Implementación del 9 de octubre de 2026. La migración `0011_ubicacion_postgis` ya se aplicó a Supabase: PostGIS 3.3.7 en el esquema `extensions`, 173 publicaciones conservadas y 172 puntos espaciales generados. El código PostGIS y health ya se comprobó desplegado el 10 de octubre.
 
 ## Almacenamiento y sincronización

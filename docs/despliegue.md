@@ -1,5 +1,7 @@
 # Despliegue básico y continuidad
 
+**Estado actual — 12 de octubre:** API paginada con fotos y mapa públicos comprobados; Supabase tiene `0012` aplicada. La nueva mejora de coordenadas está local y requiere **0013_evidencia_coordenadas** antes de usar el código nuevo. Incluye diagnóstico, consulta con caché, aplicación explícita, reversión y agrupación de puntos; ver [guía y publicación](geocodificacion.md). Las secciones anteriores de preparación que siguen conservan su estado histórico.
+
 **Fotos (última etapa local): requiere `0012_propiedad_fotos` antes de ingerir.** El build existente aplica migrate y collectstatic; esperar su finalización antes de ejecutar Actions para cargar las galerías. Actions valida migraciones pendientes sin aplicarlas. Sin variables, Secrets ni dependencias nuevas. Ver [fotos y publicación](fotos.md).
 
 Filtros estructurados, paginación y API JSON implementados localmente el 12 de octubre: pendientes de publicar. Esta etapa solo necesita desplegar el código en Render; no cambia variables, migraciones ni dependencias y no exige ingesta o reconstrucción del índice. Comprobar luego `/api/propiedades/`, sus enlaces, búsquedas filtradas y navegación HTML; ver [guía de la API](api_propiedades.md).

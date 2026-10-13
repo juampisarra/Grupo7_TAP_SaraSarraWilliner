@@ -1,5 +1,7 @@
 # Grupo7_TAP_SaraSarraWilliner
 
+**Actualización del 12 de octubre:** mapa y API con fotos públicos comprobados; Supabase tiene `0012`. Se agregó localmente diagnóstico y enriquecimiento conservador de coordenadas, conservación del original y agrupación de puntos compartidos. Esta última etapa requiere **0013** y sigue pendiente de publicar/aplicar. Ver [guía de coordenadas](docs/geocodificacion.md). Las notas anteriores de preparación conservan su contexto histórico.
+
 Fotos agregadas localmente el 12 de octubre: URLs ordenadas para las tres fuentes, portada, API y muestra mínima en HTML. **Requiere migración `0012` y luego ingesta para cargar fotos**; todavía no está publicado. No agrega servicios, Secrets ni almacenamiento de archivos. Ver [fotos y publicación](docs/fotos.md).
 
 Etapa anterior del 12 de octubre: filtros de tipo/dormitorios/precio por operación y moneda, paginación y `/api/propiedades/` implementados y probados localmente; pendientes de publicar. HTML y JSON comparten relevancia, geografía y totales. Ver [contrato y ejemplos de la API](docs/api_propiedades.md). No requiere migraciones, variables nuevas ni reconstrucción del índice.
@@ -18,7 +20,7 @@ Las features principales acordadas son:
 2. Búsqueda de texto completo con Elasticsearch y ranking por relevancia, trabajando con índices invertidos, términos, documentos, posting lists, stopwords y BM25.
 3. Búsqueda web que combine texto con filtros estructurados y geográficos, usando exclusivamente PostGIS para la lógica geográfica.
 
-La prioridad actual es el backend: scrapers, normalización, persistencia, ingesta, indexación y consultas. El frontend y el mapa se definirán e implementarán más adelante. El listado HTML existente sirve como base de prueba; su presencia no significa que la interfaz futura esté definida.
+El backend implementa scrapers, normalización, persistencia, ingesta, indexación y consultas. El equipo incorporó el frontend y mapa en `/propiedades/mapa/`; el listado HTML anterior sigue disponible para pruebas. La etapa actual mejora el diagnóstico y la procedencia de las coordenadas.
 
 ## Stack acordado
 
@@ -30,7 +32,7 @@ La prioridad actual es el backend: scrapers, normalización, persistencia, inges
 | Elasticsearch / Elastic Cloud | Índice de texto completo y ranking por relevancia alojado en Elastic Cloud; reconstruible desde PostgreSQL. |
 | Render | Django desplegado en el plan Free y conectado a Supabase y Elastic Cloud. |
 | GitHub Actions | Ingesta y reconstrucción del índice los lunes a las 00:00 de Argentina, con ejecución manual disponible. |
-| Frontend | Tecnología e implementación pendientes, incluido el mapa. |
+| Frontend | Django Templates, JavaScript y Leaflet en `/propiedades/mapa/`, consumiendo la API de Django. |
 
 PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0011` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
 
@@ -51,7 +53,7 @@ Supabase / PostgreSQL con PostGIS
                ↓
    Indexación en Elasticsearch
 
-Frontend futuro + mapa → Backend Python
+Frontend + mapa → Backend Python
                            ├─ Elasticsearch: texto y ranking
                            └─ PostgreSQL + PostGIS: datos y filtros
                         → Resultados al frontend
@@ -81,7 +83,7 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler, búsqueda textual mínima por relevancia y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0011` están verificadas en Supabase. Al 12 de octubre hay 173 publicaciones de Brega, 275 de Avantix y 306 de Gaggiotti. El workflow productivo terminó sin errores de detalle y el índice coincide íntegramente con la base. La búsqueda pública conserva el ranking y los filtros espaciales coinciden con PostGIS. La repetición sin duplicados también se probó localmente. Filtros de tipo/dormitorios/precio, API JSON y paginación están ahora implementados localmente, pendientes de publicar. El frontend definitivo y el mapa siguen pendientes. Suite actual, incluidas fotos y mantenimiento: 182 pruebas, 180 aprobadas y dos integraciones PostGIS omitidas con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
+La conexión y migraciones hasta `0012` están verificadas en Supabase. La revisión del 12 de octubre registra 754 publicaciones históricas y 752 vigentes: 171 Brega, 275 Avantix y 306 Gaggiotti. La API pública paginada con fotos y el mapa responden correctamente. La búsqueda por relevancia y PostGIS tienen sus comprobaciones previas documentadas. El enriquecimiento de coordenadas y la agrupación del mapa de esta etapa siguen locales, con `0013` pendiente. Suite actual: 212 pruebas, 210 aprobadas y dos integraciones PostGIS omitidas con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 

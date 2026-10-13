@@ -1,5 +1,7 @@
 # Ingesta y tolerancia a fallos por fuente
 
+**Estado actual — 12 de octubre:** API paginada con fotos y mapa públicos comprobados; Supabase tiene `0012` aplicada. La nueva mejora de coordenadas está local y requiere **0013_evidencia_coordenadas** antes de usar el código nuevo. Incluye diagnóstico, consulta con caché, aplicación explícita, reversión y agrupación de puntos; ver [guía y publicación](geocodificacion.md). Las secciones anteriores de preparación que siguen conservan su estado histórico.
+
 Implementado localmente el 11 de octubre de 2026 y publicado el 12 de octubre. El [workflow manual](https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner/actions/runs/38213432407) completó las tres fuentes y la reconstrucción correctamente, sin errores de detalle. El aislamiento ante fallo parcial/total está cubierto por pruebas locales; no se provocó una caída de fuente en producción. No requiere migraciones, nuevas dependencias, variables ni Secrets.
 
 Las fotos se incorporaron después de esta etapa: las tres fuentes entregan galerías en el contrato de detalles y el flujo común las guarda. Requiere `0012` antes de ingerir; None conserva, [] limpia y una lista reemplaza. Actions comprueba migraciones pendientes antes de comenzar. Ver [fotos y publicación](fotos.md).

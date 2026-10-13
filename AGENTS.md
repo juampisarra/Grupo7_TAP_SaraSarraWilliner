@@ -12,7 +12,7 @@ Las tres features principales acordadas son:
 2. Búsqueda de texto completo con Elasticsearch y ranking por relevancia.
 3. Búsqueda web con filtros estructurados y geográficos, utilizando exclusivamente PostGIS para la lógica geográfica.
 
-La prioridad inmediata es implementar las capacidades del backend y preparar la integración futura. El frontend y el mapa se definirán e implementarán más adelante; por ahora no desarrollar frontend salvo que sea estrictamente necesario para probar una feature. El listado HTML existente es una base de prueba, no la interfaz definitiva acordada.
+La prioridad es mantener el backend y su integración con el frontend ya incorporado por el equipo. `/propiedades/mapa/` utiliza Django Templates, JavaScript y Leaflet; `/propiedades/` conserva el listado de prueba. No rediseñar la interfaz ni adoptar otro framework sin una decisión del equipo. La mejora actual de coordenadas incluye representar honestamente su precisión en el mapa.
 
 Los resúmenes del mercado y análisis históricos siguen siendo posibles ampliaciones, no requisitos iniciales. No se trata de un sistema de gestión de contratos o alquileres.
 
@@ -29,7 +29,7 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | GitHub Actions | Ejecuta el comando general de ingesta y reconstruye Elasticsearch todos los lunes a las 00:00 de Argentina; también admite ejecución manual. Secrets, concurrencia y primera ejecución están verificados. |
 | Frontend | Implementado en `/propiedades/mapa/`: HTML5 (Django Templates), CSS3 Glassmorphism responsivo, JavaScript ES6+ modular y Leaflet.js con Esri WorldStreetMap. Consume `/api/propiedades/` coordinando Elasticsearch y PostGIS. |
 
-Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron las migraciones hasta `0011` en Supabase. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS y la búsqueda con Elasticsearch están desplegados. La ingesta programada reconstruye el índice completo después de persistir; la actualización incremental por publicación sigue pendiente. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
+Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron las migraciones hasta `0012` en Supabase el 12 de octubre de 2026; `0013` de coordenadas sigue local. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS y la búsqueda con Elasticsearch están desplegados. La ingesta programada reconstruye el índice completo después de persistir; la actualización incremental por publicación sigue pendiente. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
 
 ### Entorno objetivo y despliegue
 
@@ -56,6 +56,30 @@ Preparar solicitudes periódicas desde un servicio externo a una ruta ligera de 
 La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](https://cron-job.org/en/); falta comprobar una ejecución programada HTTP 200 en su historial y el intervalo efectivamente guardado (se propuso GET cada diez minutos). No presentar la creación del job como prueba de ejecución. Vercel fue una opción consultada, no adoptada.
 
 ## Estado real del repositorio
+
+### Tipos dinámicos en el mapa — 12 de octubre de 2026
+
+Por observación del usuario, se reemplazaron los cuatro tipos fijos del mapa por un catálogo generado desde todos los tipos no vacíos de publicaciones vigentes en venta o alquiler. Se consulta una sola vez al renderizar la página, mediante DISTINCT en PostgreSQL/SQLite; no depende de los primeros 100 resultados ni consulta Elasticsearch. Conserva el filtro exacto por `tipo`, las categorías originales y los manejadores existentes. Tipos nuevos aparecen al recargar, sin modificar código; se excluyen categorías únicamente históricas/inactivas. Sin datos se informa que no hay tipos disponibles.
+
+Verificación de solo lectura en Supabase: 14 categorías vigentes (Campo, Casa, Chacra, Cochera, Consultorio, Departamento, Depósito, Galpón, Local, Nave Industrial, Oficina, PH, Quinta, Terreno). Los botones se ajustan a varias filas en escritorio y mantienen desplazamiento horizontal en pantallas pequeñas. La mejora está local, pendiente de push/despliegue; por sí sola no necesita migraciones, variables ni repetir scraping. Si se publica junto con coordenadas, sigue siendo necesaria `0013`. Dos pruebas cubren catálogo independiente de paginación, categorías nuevas, vacíos/inactivas y aplicación real del filtro en API. Ver [API y tipos disponibles](docs/api_propiedades.md#tipos-disponibles-en-el-mapa).
+
+### Coordenadas: diagnóstico y enriquecimiento implementados localmente — 12 de octubre de 2026
+
+El usuario aprobó diagnosticar puntos repetidos, validar direcciones mediante Nominatim, conservar los originales y agrupar puntos compartidos en el mapa. `propiedades/coordenadas.py` detecta cinco avisos y cinco puertas distintas reconocibles en un mismo punto/fuente/localidad; también utiliza `APPROXIMATE`/`GEOMETRIC_CENTER` de `gmLocationType`, ahora conservado por Gaggiotti. Unidades de una misma puerta no cuentan como direcciones distintas. El umbral es configurable; una señal no prueba que el punto sea incorrecto.
+
+`0013_evidencia_coordenadas` agrega `coordenadas_fuente`, `geocodificacion`, `metodo_ubicacion_fuente` y `ConsultaDireccion`. Solo una coincidencia única de calle, altura, localidad, país y provincia conocida permite mejorar el punto efectivo. Se rechazan resultados de calle/barrio, direcciones ambiguas y localidades inferidas. No se promueve exactitud: `ubicacion_aproximada=NULL`, sin radio inventado, precisión API `geocodificada_direccion`; los filtros PostGIS siguen requiriendo `incluir_aproximadas=1`. El original queda separado y restaurable. No se indexan coordenadas en Elasticsearch.
+
+La ingesta preserva mejoras cuando dirección y punto/precisión/radio originales coinciden (conocer o actualizar solamente el método no las invalida); cambios las invalidan y errores de ficha las conservan. Refresca y concilia bajo bloqueo antes de guardar para no pisar una mejora aplicada durante el HTTP. El enriquecimiento revalida y bloquea solo la escritura, nunca durante HTTP. No reemplaza la exclusión operativa entre procesos que consultan al proveedor.
+
+Comandos: `diagnosticar_coordenadas` y `enriquecer_coordenadas` sin flags son vistas previas sin HTTP/escrituras; `--consultar` solo consulta y escribe caché; `--aplicar` corrige resultados aceptados. `--fuente`, `--umbral`, `--limite` (1–100, defecto 10) y `--desde-id` permiten lotes. `restaurar_coordenadas --id ID [--aplicar]` revierte una mejora con vista previa por defecto. Actions incorpora modos explícitos de diagnóstico/enriquecimiento con la concurrencia existente; no se agrega enriquecimiento a la programación semanal ni se exige Elasticsearch para estos modos.
+
+Caché por dirección/proveedor/versión: 30 días para resultados y negativos, 24 horas para errores; el respaldo experimental también se cachea con otro contrato, sin acreditar alturas. Directa e inversa comparten limitador de 15,1 segundos (cuatro consultas/minuto), sin reintentos. Mantener un solo proceso/máquina que consulte el proveedor público, atribución y uso en lotes pequeños; para uso regular de mayor volumen cambiar de proveedor compatible mediante variables opcionales `NOMINATIM_DOMAIN`/`NOMINATIM_USER_AGENT` (Repository Variables en Actions). Leer la [política pública](https://operations.osmfoundation.org/policies/nominatim/). Nunca geocodificar al visitar mapa, API, filtros o health.
+
+API agrega `ubicacion_info`. El mapa agrupa puntos idénticos con una lista de avisos, sin redondear ni desplazar pines, y muestra precisión/atribución en la tarjeta. Reemplaza la dispersión artificial de la versión anterior. La agrupación opera sobre los resultados cargados; no modifica la lógica espacial ni resuelve los límites anteriores de paginación del frontend.
+
+Revisión productiva de solo lectura: `0012` aplicada, 754 filas históricas y 752 vigentes, Gaggiotti 306. Health, API paginada con fotos y mapa públicos responden 200; `ubicacion_info` no está desplegado todavía. Los cambios anteriores se publicaron en `1f45fc6` y `fdca4d2`; las secciones inferiores conservan el estado histórico de su preparación. Diagnóstico final reproducido en memoria: un punto de Gaggiotti compartido por 18 avisos, con 12 puertas inequívocas y seis no elegibles. Otro grupo textual de cinco no alcanza cinco puertas reconocibles. Seis consultas reales pequeñas: tres rechazadas y tres aceptadas (14 de Julio 829, Belgrano 269, 25 de Mayo 575), sin aplicar resultados ni escribir en Supabase/Elastic. Ver [evidencia, comandos, publicación y límites](docs/geocodificacion.md).
+
+Validación: 212 pruebas Django, 210 aprobadas y dos integraciones PostGIS omitidas con SQLite; migración 0012→0013 y diagnóstico sobre copia efímera, pruebas de caché, reingesta, cambios durante HTTP, invalidación y reversión. Node verifica agrupación/selección/precisión con DOM/Leaflet simulados; actionlint, migraciones y dependencias comprobados. No hubo inspección visual de navegador ni cambios en db.sqlite3. Pendiente push, despliegue/migración 0013, consulta de muestra y aplicación explícita. No requiere dependencias ni Secrets nuevos. El usuario mantiene el push; no reutilizar la autorización histórica limitada a Gaggiotti.
 
 ### Frontend y mapa interactivo implementados localmente — 12 de octubre de 2026
 
@@ -392,7 +416,7 @@ El despliegue de la segunda fuente comprueba la extensibilidad del importador co
 2. **Tercera inmobiliaria: completada y publicada.** Gaggiotti ingerida en Supabase, indexada y comprobada en búsquedas públicas. Ver [Gaggiotti](docs/gaggiotti.md).
 3. **Filtros estructurados: implementados localmente.** Tipo, dormitorios y precios inclusivos separados por operación/moneda. Falta publicar y comprobar en Render.
 4. **Paginación y API JSON: implementadas localmente.** HTML y `/api/propiedades/` comparten filtros, totales y orden; publicación pendiente. Ver [contrato](docs/api_propiedades.md).
-5. **Frontend y mapa:** definir e implementar la interfaz después de completar el backend anterior; el mapa debe enviar geometrías o parámetros al backend y no calcular distancias ni consultar directamente Supabase o Elasticsearch.
+5. **Frontend y mapa: implementados por el equipo y ruta pública comprobada.** Django Templates, JavaScript y Leaflet en `/propiedades/mapa/`; mantener la lógica espacial en el backend. La mejora actual de coordenadas/agrupación sigue local; quedan por revisar los límites de carga/paginación del frontend.
 
 En paralelo con el primer paso, comprobar el historial del ping y el vencimiento exacto de Elastic Cloud. Estas tareas operativas no reemplazan los cinco pasos funcionales.
 
@@ -406,7 +430,7 @@ En paralelo con el primer paso, comprobar el historial del ping y el vencimiento
 - Comprobación del historial de cron-job.org y del intervalo guardado; `/health/` ya está desplegada y el job fue creado.
 - Publicación y comprobación pública de filtros/paginación/API ya implementados localmente; optimización futura del ranking completo y ajuste de relevancia. Elasticsearch en Render y reconstrucción automática posterior a la ingesta ya funcionan.
 - Validación del geocodificador experimental, extracción explícita de ciudad/provincia, auditoría de coordenadas históricas y tratamiento definitivo de ubicaciones ausentes.
-- Tecnología del frontend y mapa; la API de propiedades ya tiene contrato implementado, documentado y probado localmente.
+- Publicación y validación del enriquecimiento de coordenadas y agrupación de puntos; tecnología frontend ya adoptada por el equipo (Django Templates/JavaScript/Leaflet).
 - Registro del vencimiento exacto de la prueba de Elastic Cloud y continuidad posterior; configuración y comprobación de Django en Render con Elasticsearch. El servicio Elastic y su índice ya existen; el despliegue básico con Supabase ya funciona.
 
 Requests y Beautiful Soup ya se usan para Brega. Comprobar primero si las consultas directas permiten obtener los datos de cada nueva fuente; no dar por necesaria la automatización de un navegador. No se ha adoptado React, un framework de scraping adicional, colas de tareas ni microservicios. El despliegue del sitio es un requisito de entrega; Django ya está alojado en Render y no se ha adoptado Vercel.

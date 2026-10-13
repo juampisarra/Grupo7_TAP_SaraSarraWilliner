@@ -13,7 +13,7 @@
     // -------------------------------------------------------------------------
     const state = {
         operacion: 'alquiler',       // 'alquiler' | 'venta'
-        tipo: null,                  // 'Casa' | 'Departamento' | 'Monoambiente' | 'Terreno' | null
+        tipo: null,                  // Tipo de la base de datos | null (todos)
         caracteristicas: new Set(),  // Set<'Cochera', 'Patio', 'Pileta', 'Balcón', 'Terraza'>
         equipamiento: new Set(),     // Set<'Amoblado', 'Aire Acondicionado'>
         propiedades: [],             // Lista de propiedades devueltas y filtradas
@@ -207,26 +207,23 @@
             this.markersLayer.clearLayers();
             this.markerMap.clear();
 
-            // Desplazamiento radial anti-superposición para coordenadas duplicadas
-            const coordenadasVistas = new Map();
+            // Un grupo conserva el punto publicado: no inventar pines alrededor.
+            const grupos = new Map();
+            propiedades.forEach((propiedad) => {
+                const clave = `${propiedad.latitud},${propiedad.longitud}`;
+                if (!grupos.has(clave)) grupos.set(clave, []);
+                grupos.get(clave).push(propiedad);
+            });
 
-            propiedades.forEach((propiedad, index) => {
-                let lat = propiedad.latitud;
-                let lng = propiedad.longitud;
-                const coordKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
-                const repeticiones = coordenadasVistas.get(coordKey) || 0;
-                coordenadasVistas.set(coordKey, repeticiones + 1);
-
-                if (repeticiones > 0) {
-                    // Desplazamiento en espiral suave (~18 metros) para que los pines no queden tapados
-                    const angulo = repeticiones * 1.35;
-                    const radio = 0.00016 * Math.sqrt(repeticiones);
-                    lat += radio * Math.cos(angulo);
-                    lng += radio * Math.sin(angulo);
-                }
+            [...grupos.values()].forEach((grupo, index) => {
+                const propiedad = grupo[0];
+                const lat = propiedad.latitud;
+                const lng = propiedad.longitud;
 
                 const badge = formatearBadgeMarcador(propiedad, state.operacion);
-                const contenidoHtml = badge.icon 
+                const contenidoHtml = grupo.length > 1
+                    ? `<span class="marker-text">${grupo.length} avisos</span>`
+                    : badge.icon
                     ? `<span class="marker-icon">${badge.icon}</span> <span class="marker-text">${badge.texto}</span>`
                     : `<span class="marker-text">${badge.texto}</span>`;
 
@@ -252,12 +249,32 @@
                 });
 
                 marker.on('click', () => {
-                    this.seleccionarMarcador(propiedad.id);
-                    CardManager.mostrar(propiedad);
+                    if (grupo.length > 1) {
+                        const lista = document.createElement('div');
+                        const aviso = document.createElement('p');
+                        aviso.textContent = 'Estos avisos comparten un punto. Consultá la precisión de cada ubicación.';
+                        lista.appendChild(aviso);
+                        grupo.forEach((p) => {
+                            const boton = document.createElement('button');
+                            boton.type = 'button';
+                            boton.className = 'shared-location-option';
+                            boton.textContent = `${p.direccion || p.titulo || 'Propiedad'} · ${formatearPrecio(p, state.operacion)} · ${p.fuente}`;
+                            boton.addEventListener('click', () => {
+                                this.map.closePopup();
+                                this.seleccionarMarcador(p.id);
+                                CardManager.mostrar(p);
+                            });
+                            lista.appendChild(boton);
+                        });
+                        marker.bindPopup(lista, { maxHeight: 250 }).openPopup();
+                    } else {
+                        this.seleccionarMarcador(propiedad.id);
+                        CardManager.mostrar(propiedad);
+                    }
                 });
 
                 this.markersLayer.addLayer(marker);
-                this.markerMap.set(propiedad.id, marker);
+                grupo.forEach((p) => this.markerMap.set(p.id, marker));
             });
 
             // Mantener el mapa centrado y enfocado en Rafaela (evita alejarse por propiedades lejanas como San Vicente o Lehmann)
@@ -330,7 +347,16 @@
             const direccionTxt = propiedad.direccion 
                 ? `${propiedad.direccion}${propiedad.zona ? ' · ' + propiedad.zona : ''}`
                 : (propiedad.zona || 'Rafaela, Santa Fe');
-            document.getElementById('card-location').innerHTML = `📍 ${direccionTxt}`;
+            document.getElementById('card-location').textContent = `📍 ${direccionTxt}`;
+            const precisionEl = document.getElementById('card-location-precision');
+            const info = propiedad.ubicacion_info;
+            precisionEl.textContent = info?.precision === 'geocodificada_direccion'
+                ? 'Ubicación estimada por dirección; no garantiza la puerta exacta. © OpenStreetMap contributors'
+                : propiedad.ubicacion_aproximada === false
+                    ? 'Punto tratado como exacto según la política de la fuente.'
+                    : propiedad.ubicacion_aproximada === true
+                        ? 'Ubicación aproximada: el pin representa el centro del área publicada.'
+                        : 'Precisión de ubicación desconocida: el pin puede ser una referencia de zona.';
 
             // Métricas (Dormitorios, Ambientes, Baños)
             const specsEl = document.getElementById('card-specs');

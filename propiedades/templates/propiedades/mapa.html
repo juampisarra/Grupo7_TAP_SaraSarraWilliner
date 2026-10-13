@@ -51,12 +51,13 @@
             <!-- Barra de Filtros Flotante con Micro-interacciones -->
             <section class="floating-filters" aria-label="Filtros de búsqueda">
                 <!-- Tipo de Inmueble -->
-                <div class="filter-group">
+                <div class="filter-group filter-group--tipos">
                     <span class="filter-group-title">Tipo:</span>
-                    <button type="button" class="filter-chip" data-filter-tipo="Casa">Casa</button>
-                    <button type="button" class="filter-chip" data-filter-tipo="Departamento">Departamento</button>
-                    <button type="button" class="filter-chip" data-filter-tipo="Monoambiente">Monoambiente</button>
-                    <button type="button" class="filter-chip" data-filter-tipo="Terreno">Terreno</button>
+                    {% for tipo in tipos_propiedad %}
+                    <button type="button" class="filter-chip" data-filter-tipo="{{ tipo }}">{{ tipo }}</button>
+                    {% empty %}
+                    <span class="filter-group-title">Sin tipos disponibles</span>
+                    {% endfor %}
                 </div>
 
                 <div class="filter-divider"></div>
@@ -127,6 +128,8 @@
 
                 <h2 class="card-title" id="card-title">Título de la propiedad</h2>
                 <p class="card-location" id="card-location">📍 Dirección</p>
+                <p class="card-location" id="card-location-precision"></p>
+                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Datos de ubicación: OpenStreetMap / fuentes originales</a>
 
                 <!-- Especificaciones (Dormitorios, Ambientes, Baños) -->
                 <div class="card-specs-row" id="card-specs"></div>

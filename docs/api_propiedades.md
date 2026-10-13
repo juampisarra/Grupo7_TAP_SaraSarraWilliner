@@ -1,6 +1,10 @@
 # Filtros, paginación y API de propiedades
 
+**Estado actual — 12 de octubre:** API paginada con fotos y mapa públicos comprobados; Supabase tiene `0012` aplicada. La nueva mejora de coordenadas está local y requiere **0013_evidencia_coordenadas** antes de usar el código nuevo. Incluye diagnóstico, consulta con caché, aplicación explícita, reversión y agrupación de puntos; ver [guía y publicación](geocodificacion.md). Las secciones anteriores de preparación que siguen conservan su estado histórico.
+
 Implementación local del 12 de octubre de 2026, pendiente de publicación. Los filtros y la paginación no necesitan nuevas variables ni reconstruir Elasticsearch. El código actual incluye también fotos: requiere aplicar `0012` y ejecutar ingesta para cargar las galerías. No agrega dependencias ni Secrets. Ver [fotos](fotos.md). El sitio público conserva la versión anterior hasta desplegar este código.
+
+La nueva propiedad JSON `ubicacion_info` informa `origen`, `precision`, `metodo_fuente`, `punto_original` y `atribucion`. El punto efectivo sigue en `latitud`/`longitud`. Una ubicación `geocodificada_direccion` no se considera exacta: mantiene `ubicacion_aproximada=null` y requiere `incluir_aproximadas=1` al filtrar geográficamente. Ver [contrato de coordenadas](geocodificacion.md#api-y-mapa).
 
 ## Plan y alcance de esta etapa
 
@@ -124,3 +128,11 @@ Comprobación adicional con vistas locales y Supabase/PostGIS/Elastic reales, de
 Las integraciones PostGIS se ejecutan únicamente en una base de pruebas independiente. No ejecutar `manage.py test` apuntando a Supabase de producción. Ver [instrucciones de pruebas](../AGENTS.md).
 
 Referencias de implementación: [Paginator de Django](https://docs.djangoproject.com/en/6.0/topics/pagination/) y [JsonResponse](https://docs.djangoproject.com/en/6.0/ref/request-response/#jsonresponse-objects).
+
+## Tipos disponibles en el mapa
+
+La página `/propiedades/mapa/` genera sus botones de tipo desde las categorías no vacías de todas las publicaciones vigentes (venta o alquiler), ordenadas y sin duplicados. No se limita a los resultados cargados ni depende de Elasticsearch. Se conservan los valores originales: Cochera como tipo es distinto del filtro textual de comodidad Cochera. Una categoría nueva aparece al recargar la página, sin agregar botones manualmente. Las categorías presentes únicamente en avisos inactivos no se ofrecen; una categoría disponible solo en venta puede devolver cero al elegir alquiler.
+
+Los botones mantienen selección única, desactivación al pulsar nuevamente y limpieza con Limpiar. El backend continúa usando coincidencia completa `tipo__iexact`, sin agrupar categorías ni convertir Departamento en Monoambiente por dormitorios. Escritorio admite varias filas; pantallas pequeñas conservan el desplazamiento horizontal de la barra. Sin publicaciones tipificadas aparece “Sin tipos disponibles”.
+
+Revisión de solo lectura del 12 de octubre de 2026: 14 tipos vigentes en Supabase. Mejora local, pendiente de publicación; no necesita scraping, reconstrucción del índice ni migración propia. Al publicar el conjunto de cambios de coordenadas también debe aplicarse `0013`.

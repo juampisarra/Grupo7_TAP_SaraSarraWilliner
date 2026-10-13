@@ -14,7 +14,7 @@ from propiedades.scraping.contratos import DetallesPropiedad, PublicacionNormali
 from propiedades.scraping.geocoding import obtener_coordenadas
 
 
-class GeocodingTests(SimpleTestCase):
+class GeocodingTests(TestCase):
     @patch("propiedades.scraping.geocoding.consultar_direccion")
     def test_sin_ciudad_no_consulta_ni_infiere_por_nombre_de_calle(self, consultar):
         for direccion in ("Av. Santa Fe 100", "Lehmann 200", "San Vicente 500"):
@@ -38,7 +38,18 @@ class GeocodingTests(SimpleTestCase):
         self.assertEqual(obtener_coordenadas("Italia 100", "Rafaela"), (None, None))
         consultar.side_effect = GeocoderTimedOut("timeout")
         with self.assertLogs("propiedades.scraping.geocoding", level="WARNING"):
-            self.assertEqual(obtener_coordenadas("Italia 100", "Rafaela"), (None, None))
+            self.assertEqual(obtener_coordenadas("Italia 101", "Rafaela"), (None, None))
+
+    @patch("propiedades.scraping.geocoding.consultar_direccion")
+    def test_respaldo_experimental_cachea_positivos_y_negativos(self, consultar):
+        consultar.return_value = SimpleNamespace(latitude=-31.2, longitude=-61.4)
+        self.assertEqual(obtener_coordenadas("Italia 100", "Rafaela"), (-31.2, -61.4))
+        self.assertEqual(obtener_coordenadas("Italia 100", "Rafaela"), (-31.2, -61.4))
+        self.assertEqual(consultar.call_count, 1)
+        consultar.return_value = None
+        for _ in range(2):
+            self.assertEqual(obtener_coordenadas("Italia 101", "Rafaela"), (None, None))
+        self.assertEqual(consultar.call_count, 2)
 
 
 class IngestaTests(TestCase):

@@ -222,3 +222,24 @@ class ConsultaPropiedadesTests(TestCase):
         self.assertContains(respuesta, 'id="map"')
         self.assertContains(respuesta, "Observatorio Inmobiliario")
         self.assertContains(respuesta, "Alquilar")
+
+    def test_mapa_ofrece_tipos_vigentes_y_nuevos_sin_depender_de_la_pagina(self):
+        nave = Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="nave", tipo="Nave Industrial", en_venta=True)
+        Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="retirada", tipo="Campo", en_venta=False, en_alquiler=False)
+        Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="sin-tipo", tipo="", en_alquiler=True)
+        respuesta = self.client.get("/propiedades/mapa/", {"pagina": "99", "por_pagina": "1"})
+        self.assertContains(respuesta, 'data-filter-tipo="Nave Industrial"', count=1)
+        self.assertContains(respuesta, 'data-filter-tipo="Casa"', count=1)
+        self.assertContains(respuesta, 'data-filter-tipo="Departamento"', count=1)
+        self.assertNotContains(respuesta, 'data-filter-tipo="Campo"')
+        self.assertNotContains(respuesta, 'data-filter-tipo=""')
+        self.assertEqual(self.ids(self.consultar(operacion="venta", tipo="Nave Industrial")), [nave.pk])
+
+    def test_mapa_sin_publicaciones_no_inventa_tipos(self):
+        Propiedad.objects.all().delete()
+        respuesta = self.client.get("/propiedades/mapa/")
+        self.assertContains(respuesta, "Sin tipos disponibles")
+        self.assertNotContains(respuesta, "data-filter-tipo=")

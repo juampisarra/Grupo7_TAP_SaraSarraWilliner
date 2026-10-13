@@ -16,6 +16,7 @@ from propiedades.models import Propiedad
 from propiedades.enriquecimiento import ORIGEN_INVERSA, completar_localidad
 from propiedades.scraping.contratos import AdaptadorFuente
 from propiedades.scraping.geocoding import obtener_coordenadas
+from propiedades.coordenadas import conciliar_coordenadas
 
 
 @dataclass
@@ -155,7 +156,17 @@ def importar_fuente(adaptador: AdaptadorFuente, informar=lambda mensaje: None, c
 
         if completar_localidad(valores, existente, habilitado=completar_ubicacion):
             resumen.localidades_completadas += 1
-        _, creada = guardar_publicacion(adaptador.nombre, identificador, valores)
+        # Refrescar la mejora bajo bloqueo: pudo aplicarse durante el HTTP de ficha.
+        # No realizar consultas externas dentro de esta transacción corta.
+        with transaction.atomic():
+            actual = Propiedad.objects.select_for_update().filter(
+                fuente=adaptador.nombre, identificador_fuente=identificador).first()
+            cambio_actual = actual is not None and any(
+                getattr(actual, campo) != valores.get(campo, getattr(actual, campo))
+                for campo in ("direccion", "ciudad", "provincia", "zona"))
+            conciliar_coordenadas(valores, actual, coordenadas_fuente=coordenadas_fuente,
+                                 direccion_cambio=cambio_actual)
+            _, creada = guardar_publicacion(adaptador.nombre, identificador, valores)
         resumen.procesadas += 1
         if creada:
             resumen.creadas += 1

@@ -16,8 +16,36 @@ on:
           - ingesta
           - reconstruir
           - limpiar_indices
+          - diagnosticar_coordenadas
+          - enriquecer_coordenadas
       aplicar_limpieza:
         description: 'Borrar índices candidatos: solo para modo limpiar_indices, desmarcado = vista previa'
+        default: false
+        type: boolean
+      fuente_coordenadas:
+        description: 'Fuente: solo para los modos de coordenadas'
+        default: Gaggiotti
+        type: choice
+        options:
+          - Gaggiotti
+          - Brega
+          - Avantix
+          - todas
+      limite_coordenadas:
+        description: 'Máximo de candidatos por ejecución de enriquecimiento'
+        default: '10'
+        type: choice
+        options: ['10', '25', '100']
+      desde_id_coordenadas:
+        description: 'Procesar IDs mayores a este valor (permite continuar otro lote)'
+        default: 0
+        type: number
+      consultar_coordenadas:
+        description: 'Consultar proveedor y guardar caché, sin corregir publicaciones'
+        default: false
+        type: boolean
+      aplicar_coordenadas:
+        description: 'Consultar y aplicar solo coincidencias validadas (implica consultar)'
         default: false
         type: boolean
 
@@ -37,6 +65,8 @@ jobs:
       DJANGO_DEBUG: 'False'
       DB_ENGINE: postgresql
       ELASTICSEARCH_INDEX: propiedades
+      NOMINATIM_DOMAIN: ${{ vars.NOMINATIM_DOMAIN || 'nominatim.openstreetmap.org' }}
+      NOMINATIM_USER_AGENT: ${{ vars.NOMINATIM_USER_AGENT || 'Grupo7-TAP/0.2 (https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner)' }}
 
     steps:
       - name: Descargar el código
@@ -51,7 +81,7 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Comprobar migraciones y Elasticsearch
+      - name: Comprobar migraciones y servicios necesarios
         env:
           DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
           PGHOST: ${{ secrets.PGHOST }}
@@ -62,9 +92,44 @@ jobs:
           PGSSLMODE: ${{ secrets.PGSSLMODE }}
           ELASTICSEARCH_URL: ${{ secrets.ELASTICSEARCH_URL }}
           ELASTICSEARCH_API_KEY: ${{ secrets.ELASTICSEARCH_API_KEY }}
+          MODO: ${{ inputs.modo }}
         run: |
           python manage.py migrate --check
-          python manage.py comprobar_elasticsearch
+          if [ "$MODO" != 'diagnosticar_coordenadas' ] && [ "$MODO" != 'enriquecer_coordenadas' ]; then
+            python manage.py comprobar_elasticsearch
+          fi
+
+      - name: Diagnóstico o enriquecimiento de coordenadas
+        if: ${{ success() && (inputs.modo == 'diagnosticar_coordenadas' || inputs.modo == 'enriquecer_coordenadas') }}
+        env:
+          DJANGO_SECRET_KEY: ${{ secrets.DJANGO_SECRET_KEY }}
+          PGHOST: ${{ secrets.PGHOST }}
+          PGPORT: ${{ secrets.PGPORT }}
+          PGDATABASE: ${{ secrets.PGDATABASE }}
+          PGUSER: ${{ secrets.PGUSER }}
+          PGPASSWORD: ${{ secrets.PGPASSWORD }}
+          PGSSLMODE: ${{ secrets.PGSSLMODE }}
+          MODO: ${{ inputs.modo }}
+          FUENTE: ${{ inputs.fuente_coordenadas }}
+          LIMITE: ${{ inputs.limite_coordenadas }}
+          DESDE_ID: ${{ inputs.desde_id_coordenadas }}
+          CONSULTAR: ${{ inputs.consultar_coordenadas }}
+          APLICAR: ${{ inputs.aplicar_coordenadas }}
+        shell: bash
+        run: |
+          argumentos=()
+          if [ "$FUENTE" != 'todas' ]; then
+            argumentos+=(--fuente "$FUENTE")
+          fi
+          if [ "$MODO" = 'enriquecer_coordenadas' ]; then
+            argumentos+=(--limite "$LIMITE" --desde-id "$DESDE_ID")
+            if [ "$APLICAR" = 'true' ]; then
+              argumentos+=(--aplicar)
+            elif [ "$CONSULTAR" = 'true' ]; then
+              argumentos+=(--consultar)
+            fi
+          fi
+          python manage.py "$MODO" "${argumentos[@]}"
 
       - name: Ejecutar ingesta
         id: ingesta

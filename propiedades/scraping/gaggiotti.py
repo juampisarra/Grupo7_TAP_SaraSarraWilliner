@@ -136,7 +136,12 @@ def leer_coordenadas(dato):
         return {}
     # El mapa usa un marcador sin radio. gmLocationType describe su obtención,
     # pero no garantiza precisión del aviso: no extrapolar la decisión de Avantix.
-    return dict(latitud=latitud, longitud=longitud, ubicacion_aproximada=None, radio_ubicacion_m=None)
+    metodo = dato.get("gmLocationType")
+    metodo = metodo.strip().upper() if isinstance(metodo, str) else ""
+    if metodo not in {"ROOFTOP", "BY_HAND", "RANGE_INTERPOLATED", "APPROXIMATE", "GEOMETRIC_CENTER", "UNKNOWN"}:
+        metodo = "UNKNOWN"
+    return dict(latitud=latitud, longitud=longitud, ubicacion_aproximada=None,
+                radio_ubicacion_m=None, metodo_ubicacion_fuente=metodo)
 
 
 def leer_caracteristicas(dato):

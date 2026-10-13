@@ -57,6 +57,10 @@ class Propiedad(models.Model):
         # None: precisión desconocida; True: la fuente publica un área aproximada.
         ubicacion_aproximada = models.BooleanField(null=True, blank=True)
         radio_ubicacion_m = models.FloatField(null=True, blank=True)
+        metodo_ubicacion_fuente = models.CharField(max_length=40, blank=True)
+        # Evidencia publicada y corrección por dirección, separadas del punto efectivo.
+        coordenadas_fuente = models.JSONField(default=dict, blank=True)
+        geocodificacion = models.JSONField(default=dict, blank=True)
 
         #No se puede repetir fuente | identificador_fuente
         #Se puede Brega | 123, Avantix | 123
@@ -98,3 +102,13 @@ class ConsultaLocalidad(models.Model):
         constraints = [models.UniqueConstraint(
             fields=["latitud", "longitud"], name="consulta_localidad_por_coordenadas",
         )]
+
+
+class ConsultaDireccion(models.Model):
+    """Caché de consultas validadas por dirección y proveedor; incluye negativos."""
+
+    clave = models.CharField(max_length=64, unique=True)
+    consulta = models.JSONField(default=dict)
+    estado = models.CharField(max_length=20)
+    resultado = models.JSONField(default=dict)
+    consultada_en = models.DateTimeField(auto_now=True)

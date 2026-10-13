@@ -1,5 +1,6 @@
 from django.core.paginator import EmptyPage
 from django.db import NotSupportedError
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
@@ -7,6 +8,8 @@ from django.views.decorators.http import require_safe
 from .busqueda.cliente import BusquedaNoDisponible
 from .busqueda.texto import buscar_ids
 from .consultas import CAMPOS_CONSULTA, consultar_propiedades
+from .coordenadas import informacion_ubicacion
+from .models import Propiedad
 
 
 def enlace_pagina(request, numero):
@@ -27,6 +30,7 @@ def serializar_propiedad(propiedad, score):
     datos["relevancia"] = score
     datos["fotos"] = propiedad.fotos
     datos["foto_portada"] = propiedad.foto_portada
+    datos["ubicacion_info"] = informacion_ubicacion(propiedad)
     for operacion in ("venta", "alquiler"):
         precio = getattr(propiedad, f"precio_{operacion}")
         datos[operacion] = {
@@ -89,4 +93,7 @@ def api_propiedades(request):
 
 @require_safe
 def mapa_propiedades(request):
-    return render(request, "propiedades/mapa.html")
+    # Catálogo completo, independiente de la página de resultados del mapa.
+    tipos = Propiedad.objects.filter(Q(en_venta=True) | Q(en_alquiler=True)).exclude(
+        tipo="").order_by("tipo").values_list("tipo", flat=True).distinct()
+    return render(request, "propiedades/mapa.html", {"tipos_propiedad": tipos})

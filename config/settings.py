@@ -103,6 +103,13 @@ ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "").strip()
 ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
 ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "propiedades").strip()
 
+# Proveedor intercambiable sin cambiar código. Solo jobs, nunca visitas al mapa.
+NOMINATIM_DOMAIN = os.getenv("NOMINATIM_DOMAIN", "nominatim.openstreetmap.org").strip()
+NOMINATIM_USER_AGENT = os.getenv(
+    "NOMINATIM_USER_AGENT",
+    "Grupo7-TAP/0.2 (https://github.com/juampisarra/Grupo7_TAP_SaraSarraWilliner)",
+).strip()
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators

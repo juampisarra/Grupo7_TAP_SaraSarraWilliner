@@ -50,6 +50,7 @@ class DetallesPropiedad:
     radio_ubicacion_m: float | None = None
     # None: galería ausente/no verificable; []: vacía confirmada, permite limpiar.
     fotos: list[str] | None = None
+    metodo_ubicacion_fuente: str | None = None
 
 
 class AdaptadorFuente(Protocol):
