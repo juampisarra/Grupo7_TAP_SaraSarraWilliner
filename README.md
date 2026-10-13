@@ -1,6 +1,6 @@
 # Grupo7_TAP_SaraSarraWilliner
 
-**Actualización del 12 de octubre:** mapa y API con fotos públicos comprobados; Supabase tiene `0012`. Se agregó localmente diagnóstico y enriquecimiento conservador de coordenadas, conservación del original y agrupación de puntos compartidos. Esta última etapa requiere **0013** y sigue pendiente de publicar/aplicar. Ver [guía de coordenadas](docs/geocodificacion.md). Las notas anteriores de preparación conservan su contexto histórico.
+**Actualización del 12 de octubre:** mapa y API con fotos públicos comprobados. El usuario compartió logs del workflow de enriquecimiento con **ocho coordenadas Gaggiotti mejoradas**, usando el esquema `0013`; queda comprobar el resultado posterior en API/mapa. Ver [guía paso a paso del workflow y resultados](docs/geocodificacion.md#ejecutar-desde-github-actions-paso-a-paso). Las notas anteriores de preparación conservan su contexto histórico.
 
 Fotos agregadas localmente el 12 de octubre: URLs ordenadas para las tres fuentes, portada, API y muestra mínima en HTML. **Requiere migración `0012` y luego ingesta para cargar fotos**; todavía no está publicado. No agrega servicios, Secrets ni almacenamiento de archivos. Ver [fotos y publicación](docs/fotos.md).
 
@@ -83,7 +83,7 @@ La búsqueda con mapa permitirá indicar un punto y radio, o seleccionar/dibujar
 - Enriquecimiento inverso opcional con `importar_propiedades brega --completar-ubicacion`: completa ciudad/provincia faltantes con procedencia por campo y caché persistente (migración `0010`), conserva coordenadas/precisión y tolera fallos del proveedor. Los nombres inferidos se invalidan si cambia el punto; los explícitos tienen prioridad. Ver [la guía](docs/base_de_datos.md).
 - Listado `/propiedades/` con filtro de venta/alquiler, búsqueda textual mínima por relevancia y enlace al aviso original; muestra alquileres por defecto.
 
-La conexión y migraciones hasta `0012` están verificadas en Supabase. La revisión del 12 de octubre registra 754 publicaciones históricas y 752 vigentes: 171 Brega, 275 Avantix y 306 Gaggiotti. La API pública paginada con fotos y el mapa responden correctamente. La búsqueda por relevancia y PostGIS tienen sus comprobaciones previas documentadas. El enriquecimiento de coordenadas y la agrupación del mapa de esta etapa siguen locales, con `0013` pendiente. Suite actual: 212 pruebas, 210 aprobadas y dos integraciones PostGIS omitidas con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
+La conexión y migraciones hasta `0012` están verificadas en Supabase. La revisión del 12 de octubre registra 754 publicaciones históricas y 752 vigentes: 171 Brega, 275 Avantix y 306 Gaggiotti. La API pública paginada con fotos y el mapa responden correctamente. La búsqueda por relevancia y PostGIS tienen sus comprobaciones previas documentadas. El usuario confirmó mediante logs ocho aplicaciones productivas de coordenadas con el esquema `0013`; la comprobación posterior de API/mapa está pendiente. Suite actual: 212 pruebas, 210 aprobadas y dos integraciones PostGIS omitidas con SQLite. Ver [AGENTS.md](AGENTS.md) para ejecutarlas sin utilizar Supabase.
 
 ## Ejecutar el prototipo local
 

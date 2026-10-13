@@ -1,6 +1,6 @@
 # Diagnóstico y enriquecimiento de coordenadas
 
-Implementación local del 12 de octubre de 2026, pendiente de publicar y aplicar `0013_evidencia_coordenadas`. No se corrigieron publicaciones productivas ni se escribió en Supabase/Elasticsearch. El usuario aprobó la propuesta de diagnóstico, validación conservadora, conservación del original y representación honesta en el mapa.
+Implementación del 12 de octubre de 2026. El usuario compartió logs del workflow productivo con **ocho propiedades Gaggiotti enriquecidas**: dos en el primer lote y seis en el siguiente. El comando pudo usar el esquema `0013_evidencia_coordenadas`; no se repitió una auditoría independiente de migraciones, filas ni mapa después de esas aplicaciones. Ver [resultado operativo](#resultado-operativo-informado-por-el-usuario).
 
 ## Plan ejecutado
 
@@ -87,7 +87,7 @@ Omitir `--fuente` incluye todas las fuentes. Los IDs son ejemplos: revisar el di
 
 Cada candidato informa ID, motivo, estado, resultado propuesto y si se aplicó. Un job exitoso **no significa que todos se corrigieron**: `ambiguo`, `sin_resultado`, `error` y `aplicado: false` requieren revisar el resumen. El cursor evita que los primeros casos no resueltos impidan procesar lotes posteriores.
 
-## Publicación y Actions
+## Publicación inicial
 
 1. Publicar el código y esperar Render. Su build debe aplicar `0013_evidencia_coordenadas` y ejecutar `collectstatic`.
 2. Verificar health, API y mapa; `ubicacion_info` debe aparecer en cada resultado JSON.
@@ -99,6 +99,100 @@ Cada candidato informa ID, motivo, estado, resultado propuesto y si se aplicó. 
 
 En ambos modos las opciones de limpieza no tienen efecto. Con consultar/aplicar desmarcados, enriquecimiento es una vista previa sin HTTP/escrituras. La programación semanal sigue haciendo solamente ingesta/reconstrucción: no agrega consultas de enriquecimiento ni correcciones automáticas. Los modos de coordenadas comprueban migraciones y no dependen de Elasticsearch.
 
+## Ejecutar desde GitHub Actions, paso a paso
+
+En el repositorio de GitHub, abrir **Actions → Ingesta Semanal de Propiedades → Run workflow** y elegir **Branch: main**. Esperar que termine cualquier ingesta anterior. No ejecutar simultáneamente comandos locales que consulten Nominatim.
+
+### Campos del formulario
+
+| Campo visible | Qué elegir / significado |
+| --- | --- |
+| Operación a ejecutar | `diagnosticar_coordenadas` para el informe sin consultas; `enriquecer_coordenadas` para vista previa, consulta o aplicación. |
+| Borrar índices candidatos | Dejar desmarcado. Solo corresponde a `limpiar_indices`. |
+| Fuente | `Gaggiotti`, `Brega`, `Avantix` o `todas`. Todas incluye candidatos de cualquier fuente, no todas sus publicaciones. |
+| Máximo de candidatos | `10`, `25` o `100`; solo se usa al enriquecer. Cuenta candidatos procesados, incluso rechazados, no correcciones logradas. |
+| Procesar IDs mayores a este valor | `0` para comenzar; el último ID del lote anterior para continuar. Es exclusivo: `598` procesa IDs mayores a 598. |
+| Consultar proveedor y guardar caché | Marcado consulta/reutiliza caché, sin cambiar publicaciones. |
+| Consultar y aplicar solo coincidencias validadas | Marcado implica consultar y aplica únicamente resultados aceptados; tiene prioridad si también se marca consultar. |
+
+En diagnóstico solo se utiliza la fuente; límite, cursor y casillas de consulta/aplicación no cambian su comportamiento. En enriquecimiento, ambas casillas desmarcadas muestran candidatos sin HTTP ni escrituras.
+
+### Primera prueba o revisión de un lote
+
+1. Elegir `enriquecer_coordenadas`, fuente `Gaggiotti`, máximo `10`, ID inicial `0`.
+2. Marcar **Consultar proveedor y guardar caché** y dejar aplicación/limpieza desmarcadas.
+3. Pulsar **Run workflow**. Abrir la ejecución, el job `importar` y el paso **Diagnóstico o enriquecimiento de coordenadas**.
+4. Revisar los JSON de salida. Para aplicar, volver a ejecutar con **la misma fuente, límite y cursor**, marcar aplicación y desmarcar consulta/limpieza. Reutiliza la caché disponible.
+5. Después de aplicar, continuar desde el último ID que figuraba en el lote consultado, aunque su resultado haya sido rechazado. Si no hubo aceptados, se puede avanzar sin ejecutar aplicación.
+
+### Procesar hasta 100 candidatos directamente
+
+Una vez comprobado el flujo, no es obligatorio consultar y aplicar en dos ejecuciones. Configuración utilizada para ampliar la prueba:
+
+| Campo | Valor |
+| --- | --- |
+| Branch | `main` |
+| Operación | `enriquecer_coordenadas` |
+| Fuente | `todas` |
+| Máximo de candidatos | `100` |
+| Procesar IDs mayores a | `0` |
+| Consultar proveedor y guardar caché | Desmarcado |
+| Consultar y aplicar coincidencias validadas | **Marcado** |
+| Borrar índices | Desmarcado |
+
+Omite propiedades ya enriquecidas y reutiliza las consultas cacheadas, incluidos rechazos. Solo modifica coincidencias aceptadas. Hasta 100 consultas nuevas requieren aproximadamente 25 minutos por el limitador, más preparación y respuestas; el job tiene un máximo de 60 minutos. Usar lotes pequeños para la prueba y no convertir esta opción en geocodificación masiva periódica contra el servidor público.
+
+Si procesa menos del máximo, terminó los candidatos elegibles de las fuentes elegidas con IDs mayores al cursor en esa ejecución. Si alcanza el máximo, repetir con el último ID informado como nuevo cursor hasta obtener menos del máximo (o cero). Los candidatos ambiguos o sin dirección suficiente pueden seguir sin corregirse: finalizar el recorrido no significa resolver todas las ubicaciones.
+
+### Interpretar los resultados y resolver problemas
+
+| Salida | Significado / siguiente acción |
+| --- | --- |
+| `vista_previa` | No se consultó ni escribió; activar consulta o aplicación para avanzar. |
+| `aceptado`, `aplicado: false` | Hay una coincidencia validada en caché. En modo consulta es normal; en modo aplicación revisar si la fila cambió, quedó inactiva o ya fue enriquecida. No se garantiza una escritura con evidencia desactualizada. |
+| `aceptado`, `aplicado: true` | El punto efectivo y la evidencia se guardaron; el original queda conservado. |
+| `ambiguo` | No se pudo validar una coincidencia única suficiente; conserva el punto anterior. No forzar una corrección ni tratarlo como error del workflow. |
+| `sin_resultado` | El proveedor no devolvió resultados; conserva el punto anterior. |
+| `error` | Falló la consulta; conserva el punto y guarda el error temporal en caché durante 24 horas. Revisar proveedor/conectividad. |
+| `direccion_incompleta` | No hay una dirección utilizable al resolver; no se aplica una mejora. |
+| `Candidatos procesados: 0` | No quedan candidatos elegibles sin mejora para esa fuente/cursor; revisar esos campos si se esperaba otro lote. |
+
+`ya_enriquecida` en cada JSON corresponde al diagnóstico **anterior** a la aplicación. Por eso `ya_enriquecida: false` junto a `aplicado: true` es correcto. La confirmación de escritura de esa ejecución es `aplicado: true`.
+
+Un job verde no garantiza correcciones: revisar los estados. Un fallo en `migrate --check` requiere aplicar las migraciones mediante el despliegue configurado antes de reintentar; Actions no las aplica. No hacen falta nuevos Secrets para esta feature. Los modos de coordenadas no consultan Elasticsearch.
+
+Repetir inmediatamente los rechazados reutiliza la misma caché: resultados y negativos duran 30 días, errores 24 horas. Para volver a recorrerlos después de corregir los datos o vencer la caché, iniciar desde `0` o un cursor anterior; un cursor final los deja fuera. No borrar caché ni aumentar solicitudes para forzar coincidencias.
+
+### Comprobar y revertir
+
+Después de aplicar, recargar `/propiedades/mapa/` y seleccionar una dirección corregida, usando filtros si no está entre los resultados cargados. Comprobar la etiqueta geocodificada y atribución OSM. En `/api/propiedades/`, la publicación debe tener el punto efectivo nuevo y `ubicacion_info.origen=nominatim_direccion`, `precision=geocodificada_direccion` y `punto_original` conservado. La precisión continúa estimada; los filtros geográficos requieren `incluir_aproximadas=1`.
+
+No es necesario ejecutar scraping ni reconstruir Elasticsearch para publicar una corrección guardada. Para revertir, usar los comandos `restaurar_coordenadas --id ID` (vista previa) y `restaurar_coordenadas --id ID --aplicar` con el entorno correcto; no existe un modo de reversión en el formulario de Actions.
+
+## Resultado operativo informado por el usuario
+
+Logs compartidos durante esta etapa, el 12 de octubre de 2026:
+
+| Lote | Procesados | Aplicados | Ambiguos | Sin resultado |
+| --- | --- | --- | --- | --- |
+| Primera aplicación | 10 | 2 | 7 | 1 |
+| Aplicación ampliada | 23 | 6 | 14 | 3 |
+
+Los lotes se superponen en rechazos cacheados: **no sumar los procesados como propiedades distintas**. El segundo omite las dos ya enriquecidas. No aparecen estados `error` en las salidas compartidas; no se dispone aquí de URL/ID de esas ejecuciones ni de una comprobación independiente del estado final en los paneles.
+
+| ID | Dirección | Lote que confirmó `aplicado: true` |
+| --- | --- | --- |
+| 527 | Maipu 172 | Primero |
+| 597 | Belgrano 680 | Primero |
+| 625 | 14 de Julio 829 | Ampliado |
+| 630 | Alvear 394 1º | Ampliado |
+| 654 | Belgrano 269 | Ampliado |
+| 664 | 25 de Mayo 575 | Ampliado |
+| 667 | San Martin 248 | Ampliado |
+| 740 | Sarmiento 161 Piso 2, Oficina 15 | Ampliado |
+
+Con `todas`, límite `100` y cursor `0`, los 23 procesados indican el final del recorrido elegible en esa instantánea. No demuestra que todas las propiedades tengan ubicación precisa ni sustituye la comprobación posterior de API/mapa.
+
 ## API y mapa
 
 La API agrega `ubicacion_info` con `origen`, `precision`, `metodo_fuente`, `punto_original` y `atribucion`. Las referencias OSM, firma interna y caché quedan en el backend. Los campos anteriores de coordenadas y precisión se conservan.
@@ -107,9 +201,9 @@ El mapa agrupa coordenadas exactamente iguales entre los avisos cargados y permi
 
 ## Evidencia y validación
 
-Revisión productiva de solo lectura del 12 de octubre: Supabase tiene `0012` aplicada, 754 filas históricas y 752 vigentes (Brega 171, Avantix 275, Gaggiotti 306). Health, API paginada con fotos y mapa públicos responden 200; el nuevo `ubicacion_info` aún no está desplegado. Código anterior en `1f45fc6` y `fdca4d2`; estos cambios de coordenadas siguen locales.
+Revisión productiva de solo lectura **anterior al despliegue de coordenadas**, del 12 de octubre: Supabase tenía `0012` aplicada, 754 filas históricas y 752 vigentes (Brega 171, Avantix 275, Gaggiotti 306). Health, API paginada con fotos y mapa públicos respondían 200; `ubicacion_info` no estaba desplegado en esa revisión. Código anterior en `1f45fc6` y `fdca4d2`. Los logs productivos posteriores se registran arriba por separado.
 
-El primer relevamiento por direcciones textuales encontró un punto Gaggiotti compartido por 18 avisos y otro por cinco. La reproducción del diagnóstico final sobre las 754 filas, en SQLite en memoria, detectó el primer grupo con **12 puertas inequívocas y seis avisos no elegibles**. El segundo grupo no alcanza cinco puertas reconocibles; referencias como “Edificio Mayo Piso 1º Ofic. 9” no justifican corrección automática. Todavía no hay métodos `gmLocationType` persistidos: una ingesta con el código nuevo puede ampliar el diagnóstico.
+El primer relevamiento por direcciones textuales encontró un punto Gaggiotti compartido por 18 avisos y otro por cinco. La reproducción del diagnóstico final sobre las 754 filas, en SQLite en memoria, detectó el primer grupo con **12 puertas inequívocas y seis avisos no elegibles**. El segundo grupo no alcanza cinco puertas reconocibles; referencias como “Edificio Mayo Piso 1º Ofic. 9” no justifican corrección automática. En esa copia todavía no había métodos `gmLocationType` persistidos; la ingesta posterior permite ampliar el diagnóstico, como muestran los motivos de los logs productivos.
 
 Se hicieron seis consultas reales pequeñas, respetando el ritmo, sin aplicar resultados:
 
@@ -122,6 +216,6 @@ Se hicieron seis consultas reales pequeñas, respetando el ritmo, sin aplicar re
 | Belgrano 269 | Aceptada: `-31.2539523, -61.4891813`, altura coincidente. |
 | 25 de Mayo 575 | Aceptada: `-31.2470656, -61.4914994`, altura coincidente. |
 
-Las tres aceptadas compartían `-31.2525979, -61.4916422` en la fuente. Encontrar alturas coincidentes no prueba sus puertas reales ni resuelve todas las propiedades. No se verificó el comportamiento productivo posterior a migrar/aplicar porque esa publicación sigue pendiente.
+Las tres aceptadas compartían `-31.2525979, -61.4916422` en la fuente. Encontrar alturas coincidentes no prueba sus puertas reales ni resuelve todas las propiedades. Estas consultas iniciales fueron de lectura; las aplicaciones posteriores son las informadas por el usuario en la sección operativa.
 
 Validación local: 212 pruebas Django, 210 aprobadas y dos integraciones PostGIS omitidas con SQLite; migración `0012→0013` en memoria conservando fila, punto y fotos, diagnóstico sobre copia efímera, caché, ambigüedad, reingesta, invalidación, cambio durante HTTP y reversión. JavaScript se verifica con `node scripts/test_mapa_coordenadas.cjs` (DOM/Leaflet simulados) y `node --check`; no se presenta como inspección visual de navegador. Actions se valida con actionlint. Las integraciones PostGIS se omiten al usar SQLite; no se modificaron sus consultas SQL.

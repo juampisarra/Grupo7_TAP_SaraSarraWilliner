@@ -1,6 +1,6 @@
 # Continuidad del proyecto y entrega al compañero
 
-**Estado actual — 12 de octubre:** API paginada con fotos y mapa públicos comprobados; Supabase tiene `0012` aplicada. La nueva mejora de coordenadas está local y requiere **0013_evidencia_coordenadas** antes de usar el código nuevo. Incluye diagnóstico, consulta con caché, aplicación explícita, reversión y agrupación de puntos; ver [guía y publicación](geocodificacion.md). Las secciones anteriores de preparación que siguen conservan su estado histórico.
+**Estado actual — 12 de octubre:** API con fotos y mapa públicos comprobados en la revisión previa. El usuario compartió después logs del workflow productivo de coordenadas con **ocho mejoras aplicadas** (dos iniciales y seis en otro lote), usando el esquema `0013`. Falta comprobar independientemente el resultado posterior en API/mapa. Ver [formulario de Actions, lotes, estados, reversión y resultados](geocodificacion.md#ejecutar-desde-github-actions-paso-a-paso). Los apartados de preparación anteriores que siguen conservan su contexto histórico; no representan tareas actuales de publicación de coordenadas.
 
 Última etapa local: **fotos de las tres fuentes**, portada y campos nuevos en la API. Antes de ingerir debe aplicarse **0012**; el build de Render ya ejecuta migrate y collectstatic. Actions comprueba migraciones pendientes antes de empezar. Ver [fotos, validación y publicación](fotos.md). Filtros/API, mantenimiento y fotos siguen pendientes de publicar.
 

@@ -2,7 +2,7 @@
 
 El backend usa el ORM de Django con una conexión PostgreSQL mediante `psycopg`. No necesita el SDK de Supabase ni una API key. PostGIS se integró mediante la migración `0011`, aplicada en Supabase; consultar [almacenamiento y filtros geográficos](postgis.md). Elasticsearch está conectado tanto localmente como en Render, y GitHub Actions reconstruye su índice después de la ingesta; ver [índice y búsqueda](elasticsearch.md).
 
-La migración `0012_propiedad_fotos` está aplicada en Supabase, verificada el 12 de octubre. La nueva etapa local agrega `0013_evidencia_coordenadas`: evidencia original y geocodificación como JSON, método de la fuente y caché `ConsultaDireccion`. Conserva puntos/fotos anteriores y no rellena una procedencia que no se conoce. Aplicar `migrate` al desplegar, antes de ejecutar ingesta o comandos nuevos; Actions solo comprueba migraciones. Ver [coordenadas y publicación](geocodificacion.md).
+La migración `0012_propiedad_fotos` está aplicada en Supabase, verificada el 12 de octubre. La etapa de coordenadas agrega `0013_evidencia_coordenadas`, utilizada por los logs productivos compartidos por el usuario con ocho aplicaciones: evidencia original y geocodificación como JSON, método de la fuente y caché `ConsultaDireccion`. Conserva puntos/fotos anteriores y no rellena una procedencia que no se conoce. Aplicar `migrate` al desplegar, antes de ejecutar ingesta o comandos nuevos; Actions solo comprueba migraciones. Ver [coordenadas y publicación](geocodificacion.md).
 
 ## Preparación local
 

@@ -74,7 +74,7 @@ Si una operación publica varios precios, se conserva el primero, igual que hace
 
 ### Coordenadas y precisión
 
-**Mejora local del 12 de octubre:** se conserva `gmLocationType` y el punto original; un comando separado puede mejorar puntos sospechosos únicamente ante una dirección validada. No se considera exacto el resultado ni se aplica automáticamente durante scraping. Requiere `0013`; ver [diagnóstico, evidencia real y operación](geocodificacion.md).
+**Mejora del 12 de octubre, con ocho aplicaciones confirmadas en logs compartidos por el usuario:** se conserva `gmLocationType` y el punto original; un comando separado puede mejorar puntos sospechosos únicamente ante una dirección validada. No se considera exacto el resultado ni se aplica automáticamente durante scraping. Requiere `0013`; ver [diagnóstico, evidencia real y operación](geocodificacion.md).
 
 El mapa de la ficha usa los campos `geoLatitude` y `geoLongitude` para un marcador, sin círculo ni radio. `gmLocationType` incluye valores como `ROOFTOP`, `BY_HAND`, `RANGE_INTERPOLATED`, `APPROXIMATE`, `GEOMETRIC_CENTER` y `UNKNOWN`; describe cómo se obtuvo el punto y no se toma como garantía de precisión del aviso.
 
