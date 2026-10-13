@@ -85,3 +85,8 @@ def lista_propiedades(request):
 @require_safe
 def api_propiedades(request):
     return responder_consulta(request, json=True)
+
+
+@require_safe
+def mapa_propiedades(request):
+    return render(request, "propiedades/mapa.html")

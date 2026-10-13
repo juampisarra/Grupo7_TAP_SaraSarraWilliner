@@ -1,0 +1,901 @@
+/* ==========================================================================
+   Observatorio Inmobiliario Rafaela - Estilos de Interfaz de Mapa
+   Rediseño Premium: Glassmorphism, Micro-interacciones Fluidas estilo Claude
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    --accent: #10b981;
+    --accent-gradient: linear-gradient(135deg, #34d399 0%, #059669 100%);
+    --surface-glass: rgba(255, 255, 255, 0.82);
+    --surface-glass-subtle: rgba(255, 255, 255, 0.65);
+    --surface-card: rgba(255, 255, 255, 0.94);
+    --border-glass: rgba(255, 255, 255, 0.75);
+    --border-subtle: rgba(226, 232, 240, 0.8);
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --text-light: #94a3b8;
+    --shadow-glass: 0 16px 36px -4px rgba(15, 23, 42, 0.12), 0 6px 16px -2px rgba(15, 23, 42, 0.06);
+    --shadow-glow: 0 8px 24px -2px rgba(37, 99, 235, 0.28);
+    --shadow-marker: 0 8px 18px -2px rgba(15, 23, 42, 0.22);
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-lg: 22px;
+    --radius-full: 9999px;
+    --spring-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --font-modern: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: var(--font-modern);
+    background-color: #f1f5f9;
+    color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
+}
+
+.app-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   Mapa a Pantalla Completa (Fondo base)
+   -------------------------------------------------------------------------- */
+.map-viewport {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+#map {
+    width: 100%;
+    height: 100%;
+    background-color: #f1f5f9;
+}
+
+/* Estética Minimalista Plateada / Mapbox Light */
+.leaflet-tile-pane {
+    filter: grayscale(1) brightness(1.05) contrast(0.92);
+}
+
+/* Ocultar watermark o controles feos, limpiar mapa */
+.leaflet-control-attribution {
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(8px);
+    font-size: 10px !important;
+    border-radius: var(--radius-sm);
+    margin: 6px !important;
+    padding: 2px 6px !important;
+}
+
+.leaflet-control-zoom {
+    border: none !important;
+    box-shadow: var(--shadow-glass) !important;
+    border-radius: var(--radius-md) !important;
+    overflow: hidden;
+    backdrop-filter: blur(16px);
+    background: var(--surface-glass) !important;
+    margin-right: 18px !important;
+    margin-bottom: 24px !important;
+}
+
+.leaflet-control-zoom a {
+    background: transparent !important;
+    color: var(--text-main) !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    transition: background 0.15s ease;
+}
+
+.leaflet-control-zoom a:hover {
+    background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Isla Flotante Superior: Encabezado y Filtros (Glassmorphism estilo Claude)
+   -------------------------------------------------------------------------- */
+.floating-dock-container {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 36px);
+    max-width: 1180px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none; /* Permite arrastrar el mapa a través de los espacios */
+}
+
+.floating-header,
+.floating-filters {
+    pointer-events: auto; /* Restablece eventos para los controles */
+    background: var(--surface-glass);
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow-glass);
+    border-radius: var(--radius-lg);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.floating-header:hover,
+.floating-filters:hover {
+    box-shadow: 0 20px 40px -4px rgba(15, 23, 42, 0.16);
+}
+
+/* --------------------------------------------------------------------------
+   Encabezado Flotante
+   -------------------------------------------------------------------------- */
+.floating-header {
+    height: 58px;
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text-main);
+    transition: transform 0.2s var(--spring-bounce);
+}
+
+.brand:hover {
+    transform: scale(1.02);
+}
+
+.brand-icon {
+    font-size: 24px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.brand-title {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    color: var(--text-main);
+    background: linear-gradient(135deg, #0f172a 0%, #334155 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+/* Selector Segmentado Alquilar / Comprar */
+.segmented-control {
+    display: flex;
+    background: rgba(241, 245, 249, 0.75);
+    padding: 4px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    gap: 3px;
+    position: relative;
+}
+
+.segmented-control button {
+    border: none;
+    background: transparent;
+    padding: 6px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: inherit;
+    color: var(--text-muted);
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.22s var(--spring-bounce);
+}
+
+.segmented-control button:hover {
+    color: var(--text-main);
+}
+
+.segmented-control button.active {
+    background: #ffffff;
+    color: var(--primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: scale(1.02);
+}
+
+/* Header Actions */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.results-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: rgba(241, 245, 249, 0.6);
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(226, 232, 240, 0.6);
+}
+
+.results-badge .dot {
+    width: 7px;
+    height: 7px;
+    background-color: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+    animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+}
+
+.link-button {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-main);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-subtle);
+    background: rgba(255, 255, 255, 0.8);
+    transition: all 0.2s var(--spring-bounce);
+}
+
+.link-button:hover {
+    background: #ffffff;
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Barra de Filtros Flotante con Micro-interacciones
+   -------------------------------------------------------------------------- */
+.floating-filters {
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+}
+
+@media (max-width: 1024px) {
+    .floating-filters {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(203, 213, 225, 0.6) transparent;
+        padding-bottom: 10px;
+    }
+
+    .floating-filters::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .floating-filters::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.5);
+        border-radius: 4px;
+    }
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-group-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-light);
+    margin-right: 2px;
+    user-select: none;
+}
+
+.filter-divider {
+    width: 1px;
+    height: 22px;
+    background: rgba(203, 213, 225, 0.7);
+    margin: 0 4px;
+    flex-shrink: 0;
+}
+
+/* Botones / Chips de Filtros con Hover Glow & Bounce */
+.filter-chip {
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    background: rgba(255, 255, 255, 0.85);
+    color: var(--text-main);
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: transform 0.22s var(--spring-bounce), box-shadow 0.22s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+/* Micro-interacción: Elevación + Resplandor en Hover */
+.filter-chip:hover {
+    transform: translateY(-2px) scale(1.03);
+    border-color: rgba(37, 99, 235, 0.4);
+    background: #ffffff;
+    box-shadow: 0 8px 16px -2px rgba(37, 99, 235, 0.16), 0 0 0 1px rgba(37, 99, 235, 0.2);
+    color: var(--primary);
+}
+
+.filter-chip:active {
+    transform: translateY(0) scale(0.96);
+}
+
+/* Estado Activo: Gradiente Moderno + Resplandor (Glow) */
+.filter-chip.active {
+    background: var(--primary-gradient);
+    color: #ffffff;
+    border-color: transparent;
+    font-weight: 700;
+    box-shadow: var(--shadow-glow);
+    transform: translateY(-1px) scale(1.02);
+}
+
+.filter-chip.active:hover {
+    box-shadow: 0 10px 24px -2px rgba(37, 99, 235, 0.4);
+    transform: translateY(-2px) scale(1.04);
+}
+
+.filter-chip.clear-btn {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.filter-chip.clear-btn:hover {
+    color: #ef4444;
+    background: rgba(254, 242, 242, 0.85);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   Marcadores Personalizados con Animación de Entrada Suave
+   -------------------------------------------------------------------------- */
+.custom-leaflet-marker-wrapper {
+    background: transparent !important;
+    border: none !important;
+}
+
+.property-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    animation: markerEntrance 0.38s var(--spring-bounce) backwards;
+    transition: transform 0.2s var(--spring-bounce);
+    transform-origin: bottom center;
+}
+
+@keyframes markerEntrance {
+    0% {
+        transform: scale(0.2) translateY(12px);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.15) translateY(-3px);
+    }
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.marker-inner {
+    background: #ffffff;
+    border: 2px solid var(--primary);
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    box-shadow: var(--shadow-marker);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s var(--spring-bounce);
+}
+
+.marker-pin-tip {
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--primary);
+    margin-top: -1px;
+    transition: border-top-color 0.2s ease;
+}
+
+/* Hover en Marcador */
+.property-marker:hover {
+    transform: scale(1.15) translateY(-3px);
+    z-index: 9999 !important;
+}
+
+.property-marker:hover .marker-inner {
+    background: var(--primary);
+    color: #ffffff;
+    box-shadow: var(--shadow-glow);
+}
+
+.property-marker:hover .marker-pin-tip {
+    border-top-color: var(--primary-hover);
+}
+
+/* Marcador Activo (Seleccionado) */
+.property-marker.active {
+    transform: scale(1.22) translateY(-4px);
+    z-index: 10000 !important;
+}
+
+.property-marker.active .marker-inner {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 12px 28px -2px rgba(15, 23, 42, 0.45);
+}
+
+.property-marker.active .marker-pin-tip {
+    border-top-color: #0f172a;
+}
+
+/* --------------------------------------------------------------------------
+   Tarjeta Flotante Superpuesta (Overlay Popup Moderno)
+   -------------------------------------------------------------------------- */
+.property-card-overlay {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    width: 370px;
+    max-width: calc(100vw - 36px);
+    background: var(--surface-card);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 24px 48px -6px rgba(15, 23, 42, 0.2), 0 8px 16px -4px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    overflow: hidden;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    animation: cardSlideUp 0.3s var(--spring-bounce);
+}
+
+.property-card-overlay[hidden] {
+    display: none !important;
+}
+
+@keyframes cardSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Carrusel de Fotos */
+.card-media {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    background: #cbd5e1;
+    overflow: hidden;
+}
+
+.card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: opacity 0.2s ease;
+}
+
+.card-media-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: var(--text-muted);
+    font-size: 13px;
+    gap: 8px;
+}
+
+.card-media-placeholder span.icon {
+    font-size: 32px;
+}
+
+.carousel-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    color: var(--text-main);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s var(--spring-bounce);
+    z-index: 10;
+}
+
+.carousel-nav-btn:hover {
+    background: #ffffff;
+    transform: translateY(-50%) scale(1.12);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.2);
+}
+
+.carousel-nav-btn.prev {
+    left: 10px;
+}
+
+.carousel-nav-btn.next {
+    right: 10px;
+}
+
+.carousel-badge {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(15, 23, 42, 0.75);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+    backdrop-filter: blur(6px);
+    z-index: 10;
+}
+
+.card-close-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.65);
+    color: #ffffff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 15px;
+    backdrop-filter: blur(6px);
+    transition: all 0.2s var(--spring-bounce);
+    z-index: 15;
+}
+
+.card-close-btn:hover {
+    background: rgba(15, 23, 42, 0.95);
+    transform: scale(1.1);
+}
+
+/* Cuerpo de la Tarjeta */
+.card-content {
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.card-header-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.card-price {
+    font-size: 21px;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.025em;
+}
+
+.card-operation-tag {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 9px;
+    border-radius: var(--radius-full);
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary);
+}
+
+.card-operation-tag.venta {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--accent);
+}
+
+.card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-main);
+    line-height: 1.3;
+}
+
+.card-location {
+    font-size: 13px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+}
+
+/* Especificaciones principales */
+.card-specs-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px 0;
+    border-top: 1px solid rgba(226, 232, 240, 0.7);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.spec-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 500;
+}
+
+.spec-item strong {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+/* Chips de comodidades */
+.card-features-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.feature-pill {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(241, 245, 249, 0.8);
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Botón CTA Aviso Original */
+.card-cta-btn {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: var(--primary-gradient);
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+    transition: all 0.2s var(--spring-bounce);
+}
+
+.card-cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.45);
+}
+
+.card-agency-source {
+    font-size: 11px;
+    text-align: center;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Estado de Carga y Mensajes Flotantes (Glass Toasts)
+   -------------------------------------------------------------------------- */
+.loading-toast {
+    position: absolute;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15, 23, 42, 0.88);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 20px;
+    border-radius: var(--radius-full);
+    backdrop-filter: blur(12px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+    animation: toastSlideUp 0.25s var(--spring-bounce);
+    pointer-events: none;
+}
+
+@keyframes toastSlideUp {
+    from { opacity: 0; transform: translate(-50%, 15px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.loading-toast[hidden] {
+    display: none !important;
+}
+
+.spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.65s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-results-banner {
+    position: absolute;
+    top: 140px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface-card);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-glass);
+    padding: 12px 22px;
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-glass);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    animation: bannerPop 0.25s var(--spring-bounce);
+}
+
+@keyframes bannerPop {
+    from { opacity: 0; transform: translate(-50%, -10px) scale(0.95); }
+    to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+.empty-results-banner[hidden] {
+    display: none !important;
+}
+
+.empty-results-banner button {
+    border: none;
+    background: var(--primary);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all 0.2s var(--spring-bounce);
+}
+
+.empty-results-banner button:hover {
+    transform: scale(1.05);
+    box-shadow: var(--shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Móvil
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .floating-dock-container {
+        top: 10px;
+        width: calc(100% - 20px);
+        gap: 8px;
+    }
+
+    .floating-header {
+        height: 52px;
+        padding: 0 12px;
+    }
+
+    .brand-title {
+        font-size: 14px;
+    }
+
+    .brand-subtitle, .results-badge {
+        display: none;
+    }
+
+    .segmented-control button {
+        padding: 5px 12px;
+        font-size: 12px;
+    }
+
+    .floating-filters {
+        padding: 6px 10px;
+        gap: 6px;
+    }
+
+    .filter-chip {
+        padding: 5px 11px;
+        font-size: 12px;
+    }
+
+    .property-card-overlay {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        width: auto;
+        max-width: 100%;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+
+    .card-media {
+        height: 180px;
+    }
+}

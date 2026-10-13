@@ -27,7 +27,7 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | Elasticsearch / Elastic Cloud | Elasticsearch es el índice especializado exclusivamente en búsqueda de texto completo y ranking por relevancia; se alojará en Elastic Cloud. No reemplaza PostgreSQL ni realiza filtros geográficos. |
 | Render | Django está desplegado y conectado a Supabase y Elastic Cloud. `/propiedades/` permite probar búsqueda textual por relevancia mediante un formulario simple. |
 | GitHub Actions | Ejecuta el comando general de ingesta y reconstruye Elasticsearch todos los lunes a las 00:00 de Argentina; también admite ejecución manual. Secrets, concurrencia y primera ejecución están verificados. |
-| Frontend | Tecnología e implementación pendientes, incluida la interfaz de mapa. |
+| Frontend | Implementado en `/propiedades/mapa/`: HTML5 (Django Templates), CSS3 Glassmorphism responsivo, JavaScript ES6+ modular y Leaflet.js con Esri WorldStreetMap. Consume `/api/propiedades/` coordinando Elasticsearch y PostGIS. |
 
 Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron las migraciones hasta `0011` en Supabase. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS y la búsqueda con Elasticsearch están desplegados. La ingesta programada reconstruye el índice completo después de persistir; la actualización incremental por publicación sigue pendiente. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
 
@@ -56,6 +56,19 @@ Preparar solicitudes periódicas desde un servicio externo a una ruta ligera de 
 La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](https://cron-job.org/en/); falta comprobar una ejecución programada HTTP 200 en su historial y el intervalo efectivamente guardado (se propuso GET cada diez minutos). No presentar la creación del job como prueba de ejecución. Vercel fue una opción consultada, no adoptada.
 
 ## Estado real del repositorio
+
+### Frontend y mapa interactivo implementados localmente — 12 de octubre de 2026
+
+El usuario consultó y aprobó la implementación del frontend sobre el stack nativo del repositorio (Opción A: sin frameworks pesados ni bundlers externos como React o Vue). La interfaz principal de mapa está disponible en `/propiedades/mapa/` y toma como referencia visual y funcional a `cocosabe.online`.
+
+Tecnologías frontend utilizadas:
+- **HTML5 (Django Templates)**: Plantilla `propiedades/templates/propiedades/mapa.html` servida directamente desde el backend mediante la vista `mapa_propiedades` en `propiedades/views.py`.
+- **CSS3 Moderno**: Hoja de estilos `propiedades/static/propiedades/mapa.css` con estética *Glassmorphism* (fondo translúcido con `backdrop-filter: blur`, bordes brillantes y sombras multicapa suaves), tipografía *Plus Jakarta Sans*, micro-interacciones con curvas de resorte (`cubic-bezier`), hover glow en botones de filtros y diseño fluido `flex-wrap` adaptable sin recortes.
+- **JavaScript Vanilla (ES6+ modular)**: Archivo `propiedades/static/propiedades/mapa.js` con arquitectura orientada a estado reactivo (`state`), sin dependencias de Node.js ni compilación externa. Control de cancelaciones con `AbortController` para evitar condiciones de carrera.
+- **Leaflet.js con Esri WorldStreetMap**: Mapa central interactivo 100% gratuito (sin API keys ni marcas de agua) con filtro CSS plateado/monocromático (*Mapbox Light*), centrado fijo en Rafaela (`zoom: 14`), marcadores personalizados con globo de precio (`L.divIcon`), animación elástica de entrada escalonada y dispersión radial anti-superposición para coordenadas duplicadas.
+- **Integración con Elasticsearch y Backend**: Los filtros de tipo (`Casa`, `Departamento`, etc.) viajan estructurados a `GET /api/propiedades/`, mientras que las comodidades (`Cochera`, `Patio`, `Pileta`, `Balcón`, `Terraza`) y equipamiento (`Amoblado`, `Aire Acondicionado`) se concatenan en el parámetro `q` para ejecutar la búsqueda de texto completo BM25 en Elasticsearch. Incorpora además un fallback tolerante a fallos para entornos de desarrollo local que no tengan configurado Elastic Cloud en su `.env`.
+- **Tarjeta flotante de propiedad**: Superpuesta sobre el mapa con carrusel deslizable de imágenes (`fotos`), indicador de posición, detalles principales (precio, dormitorios, ambientes, baños, comodidades) y botón directo al aviso original en la inmobiliaria.
+- Validación: 183 pruebas de Django aprobadas (100% OK), incluyendo verificación unitaria de la vista del mapa y `collectstatic`.
 
 ### Fotos implementadas localmente — 12 de octubre de 2026
 

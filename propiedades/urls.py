@@ -7,4 +7,5 @@ app_name = "propiedades"
 
 urlpatterns = [
     path("", views.lista_propiedades, name="lista"),
+    path("mapa/", views.mapa_propiedades, name="mapa"),
 ]

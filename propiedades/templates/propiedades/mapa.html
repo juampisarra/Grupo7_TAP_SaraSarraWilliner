@@ -1,0 +1,155 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Interactivo de Propiedades — Rafaela | Observatorio Inmobiliario</title>
+
+    <!-- Leaflet CSS desde CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin="" />
+
+    <!-- Estilos de la Interfaz del Mapa (Glassmorphism & Micro-interacciones) -->
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 1. Mapa Base a Pantalla Completa (OpenStreetMap Gratuito) -->
+        <main class="map-viewport">
+            <div id="map"></div>
+        </main>
+
+        <!-- 2. Isla Flotante de Comandos y Filtros (Estilo Glassmorphism Claude) -->
+        <div class="floating-dock-container">
+            <!-- Encabezado Flotante -->
+            <header class="floating-header">
+                <a href="{% url 'propiedades:mapa' %}" class="brand">
+                    <span class="brand-icon">🗺️</span>
+                    <div>
+                        <h1 class="brand-title">Observatorio Inmobiliario</h1>
+                        <span class="brand-subtitle">Rafaela, Santa Fe</span>
+                    </div>
+                </a>
+
+                <!-- Selector Segmentado Alquilar / Comprar -->
+                <nav class="segmented-control" aria-label="Tipo de operación">
+                    <button type="button" id="btn-op-alquiler" class="active">Alquilar</button>
+                    <button type="button" id="btn-op-venta">Comprar</button>
+                </nav>
+
+                <!-- Acciones y Contador -->
+                <div class="header-actions">
+                    <div class="results-badge" id="results-badge">
+                        <span class="dot"></span>
+                        <span id="results-count">Cargando...</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Barra de Filtros Flotante con Micro-interacciones -->
+            <section class="floating-filters" aria-label="Filtros de búsqueda">
+                <!-- Tipo de Inmueble -->
+                <div class="filter-group">
+                    <span class="filter-group-title">Tipo:</span>
+                    <button type="button" class="filter-chip" data-filter-tipo="Casa">Casa</button>
+                    <button type="button" class="filter-chip" data-filter-tipo="Departamento">Departamento</button>
+                    <button type="button" class="filter-chip" data-filter-tipo="Monoambiente">Monoambiente</button>
+                    <button type="button" class="filter-chip" data-filter-tipo="Terreno">Terreno</button>
+                </div>
+
+                <div class="filter-divider"></div>
+
+                <!-- Características (Elasticsearch) -->
+                <div class="filter-group">
+                    <span class="filter-group-title">Comodidades:</span>
+                    <button type="button" class="filter-chip" data-filter-caracteristica="Cochera">🚗 Cochera</button>
+                    <button type="button" class="filter-chip" data-filter-caracteristica="Patio">🌿 Patio</button>
+                    <button type="button" class="filter-chip" data-filter-caracteristica="Pileta">🏊 Pileta</button>
+                    <button type="button" class="filter-chip" data-filter-caracteristica="Balcón">🏢 Balcón</button>
+                    <button type="button" class="filter-chip" data-filter-caracteristica="Terraza">☀️ Terraza</button>
+                </div>
+
+                <div class="filter-divider"></div>
+
+                <!-- Equipamiento (Elasticsearch) -->
+                <div class="filter-group">
+                    <span class="filter-group-title">Equipamiento:</span>
+                    <button type="button" class="filter-chip" data-filter-equipamiento="Amoblado">🛋️ Amoblado</button>
+                    <button type="button" class="filter-chip" data-filter-equipamiento="Aire Acondicionado">❄️ Aire Acond.</button>
+                </div>
+
+                <div class="filter-divider"></div>
+
+                <!-- Botón Limpiar -->
+                <button type="button" class="filter-chip clear-btn" id="btn-limpiar-filtros" title="Restablecer filtros">
+                    ✕ Limpiar
+                </button>
+            </section>
+        </div>
+
+        <!-- 3. Toast de Carga en Tiempo Real -->
+        <div class="loading-toast" id="loading-toast" hidden>
+            <div class="spinner"></div>
+            <span>Buscando con Elasticsearch...</span>
+        </div>
+
+        <!-- 4. Banner de 0 Resultados -->
+        <div class="empty-results-banner" id="empty-results-banner" hidden>
+            <span>No encontramos inmuebles con esa combinación de filtros.</span>
+            <button type="button" id="btn-reset-empty">Restablecer</button>
+        </div>
+
+        <!-- 5. Tarjeta Flotante Superpuesta de Propiedad (Popup / Overlay) -->
+        <article class="property-card-overlay" id="property-card" hidden aria-live="polite">
+            <!-- Carrusel de Fotos -->
+            <div class="card-media">
+                <img id="card-image" src="" alt="Foto de la propiedad" loading="lazy" decoding="async">
+                <div class="card-media-placeholder" id="card-image-placeholder" hidden>
+                    <span class="icon">📷</span>
+                    <span>Foto no disponible</span>
+                </div>
+
+                <button type="button" class="carousel-nav-btn prev" id="carousel-btn-prev" aria-label="Foto anterior" hidden>❮</button>
+                <button type="button" class="carousel-nav-btn next" id="carousel-btn-next" aria-label="Siguiente foto" hidden>❯</button>
+                <span class="carousel-badge" id="card-carousel-counter" hidden>1 / 1</span>
+
+                <button type="button" class="card-close-btn" id="card-close-btn" aria-label="Cerrar tarjeta">✕</button>
+            </div>
+
+            <!-- Contenido de la Tarjeta -->
+            <div class="card-content">
+                <div class="card-header-row">
+                    <span class="card-price" id="card-price">$ 0</span>
+                    <span class="card-operation-tag" id="card-operation-tag">Alquiler</span>
+                </div>
+
+                <h2 class="card-title" id="card-title">Título de la propiedad</h2>
+                <p class="card-location" id="card-location">📍 Dirección</p>
+
+                <!-- Especificaciones (Dormitorios, Ambientes, Baños) -->
+                <div class="card-specs-row" id="card-specs"></div>
+
+                <!-- Etiquetas de comodidades destacadas -->
+                <div class="card-features-row" id="card-features"></div>
+
+                <!-- Botón de redirección con el link original -->
+                <a id="card-cta-btn" class="card-cta-btn" href="#" target="_blank" rel="noopener noreferrer">
+                    Ver aviso original ↗
+                </a>
+
+                <span class="card-agency-source" id="card-agency-source">Inmobiliaria</span>
+            </div>
+        </article>
+    </div>
+
+    <!-- Leaflet JS desde CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+
+    <!-- Script de Integración de Mapa y Elasticsearch -->
+    <script src="{% static 'propiedades/mapa.js' %}"></script>
+</body>
+</html>

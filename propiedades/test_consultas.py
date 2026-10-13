@@ -215,3 +215,10 @@ class ConsultaPropiedadesTests(TestCase):
         self.assertEqual(self.ids(datos), [self.casa.pk])
         self.assertEqual(datos["total"], 1)
         self.assertEqual(len(datos["advertencias"]), 1)
+
+    def test_vista_mapa_devuelve_200_html(self):
+        respuesta = self.client.get("/propiedades/mapa/")
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, 'id="map"')
+        self.assertContains(respuesta, "Observatorio Inmobiliario")
+        self.assertContains(respuesta, "Alquilar")
