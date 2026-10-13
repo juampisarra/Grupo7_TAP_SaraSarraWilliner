@@ -7,7 +7,7 @@
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
     <!-- MapLibre dibuja el mapa; el proveedor se configura desde Django. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261013-vistas">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261013-tipos-operacion">
 </head>
 <body>
 <div class="app-container">
@@ -70,10 +70,9 @@
                     <div class="tipo-opciones">
                         <button type="button" class="filter-chip active" id="btn-todos-tipos" aria-pressed="true">Todos los tipos</button>
                         {% for tipo in tipos_propiedad %}
-                        <button type="button" class="filter-chip" data-filter-tipo="{{ tipo }}" aria-pressed="false">{{ tipo }}</button>
-                        {% empty %}
-                        <span>Sin tipos disponibles</span>
+                        <button type="button" class="filter-chip" data-filter-tipo="{{ tipo.tipo }}" data-disponible-alquiler="{{ tipo.alquiler|yesno:'true,false' }}" data-disponible-venta="{{ tipo.venta|yesno:'true,false' }}" aria-pressed="false"{% if not tipo.alquiler %} hidden disabled{% endif %}>{{ tipo.tipo }}</button>
                         {% endfor %}
+                        <span id="tipos-vacios"{% if hay_tipos_alquiler %} hidden{% endif %}>Sin tipos disponibles para alquilar.</span>
                     </div>
                 </div>
             </details>
@@ -157,7 +156,7 @@
 <script type="module">
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
-    await import("{% static 'propiedades/mapa.js' %}?v=20261013-vistas");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261013-tipos-operacion");
 </script>
 </body>
 </html>

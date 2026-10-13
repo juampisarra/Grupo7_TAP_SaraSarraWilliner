@@ -57,6 +57,12 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Tipos disponibles según operación — 13 de octubre de 2026
+
+El equipo confirmó ocultar los tipos sin publicaciones vigentes en la operación elegida. Django obtiene disponibilidad de alquiler/venta de todo el catálogo mediante una sola consulta agrupada en PostgreSQL/SQLite, independiente de paginación, coordenadas y otros filtros. Alquilar empieza con los tipos exclusivos de venta ocultos y deshabilitados. Cambiar de operación actualiza el menú inmediatamente; conserva un tipo disponible en ambas operaciones o limpia uno incompatible a Todos los tipos antes de la única búsqueda. Limpiar conserva la operación y sus opciones. Sin categorías se muestra un mensaje para alquilar o comprar. Recargar actualiza el catálogo tras cambios en la base.
+
+La versión de CSS/JavaScript pasa a `20261013-tipos-operacion` para evitar reutilizar archivos anteriores. Pasaron 27 pruebas Django de consultas/plantilla, pruebas Node de disponibilidad/selección/limpieza y regresiones, sintaxis y estáticos. Pruebas con SQLite efímero y servicios simulados; sin cambios productivos, migraciones, ingesta ni indexación. La inspección visual independiente sigue pendiente por el bloqueo previo de la herramienta del navegador. Cambios locales, sin commit, push ni despliegue. Ver [catálogo por operación](docs/api_propiedades.md#tipos-disponibles-en-el-mapa).
+
 ### Selector de vistas en una esquina — 13 de octubre de 2026
 
 El usuario autorizó al agente a terminar los cambios que estaba aplicando manualmente. El selector quedó separado del panel de filtros, en la esquina inferior izquierda del mapa y por encima del logo y la atribución. Usa un botón oscuro con ícono de capas y el nombre de la vista activa: Calles (predeterminada), Oscuro o Satélite. Mantener el selector compacto; Escape y el clic afuera cierran el menú. Estos cambios siguen locales, sin commit, push ni despliegue.

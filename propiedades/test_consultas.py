@@ -1,4 +1,5 @@
 from decimal import Decimal
+from html.parser import HTMLParser
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
@@ -258,6 +259,62 @@ class ConsultaPropiedadesTests(TestCase):
         respuesta = self.client.get("/propiedades/mapa/")
         self.assertContains(respuesta, "Sin tipos disponibles")
         self.assertNotContains(respuesta, "data-filter-tipo=")
+
+    def botones_tipo(self, respuesta):
+        class Parser(HTMLParser):
+            botones = {}
+
+            def handle_starttag(self, tag, attrs):
+                datos = dict(attrs)
+                if tag == "button" and "data-filter-tipo" in datos:
+                    self.botones[datos["data-filter-tipo"]] = datos
+
+        parser = Parser()
+        parser.feed(respuesta.content.decode())
+        return parser.botones
+
+    @patch("propiedades.views.buscar_ids")
+    def test_mapa_disponibilidad_de_tipos_por_operacion_en_catalogo_completo(self, buscar):
+        nave = Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="nave", tipo="Nave Industrial", en_venta=True)
+        Propiedad.objects.create(
+            fuente="Avantix", identificador_fuente="nave-otra", tipo="Nave Industrial", en_venta=True)
+        Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="campo", tipo="Campo", en_alquiler=True)
+        Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="retirada", tipo="Chacra")
+        Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="sin-tipo", tipo="", en_alquiler=True)
+        with self.assertNumQueries(1):
+            respuesta = self.client.get("/propiedades/mapa/", {
+                "pagina": "99", "por_pagina": "1", "q": "sin coincidencias", "tipo": "Casa",
+            })
+        buscar.assert_not_called()
+        botones = self.botones_tipo(respuesta)
+        self.assertEqual(set(botones), {"Casa", "Departamento", "Campo", "Nave Industrial"})
+        for tipo in ("Casa", "Departamento"):
+            self.assertEqual(botones[tipo]["data-disponible-alquiler"], "true")
+            self.assertEqual(botones[tipo]["data-disponible-venta"], "true")
+            self.assertNotIn("hidden", botones[tipo])
+        self.assertEqual(botones["Campo"]["data-disponible-alquiler"], "true")
+        self.assertEqual(botones["Campo"]["data-disponible-venta"], "false")
+        self.assertNotIn("hidden", botones["Campo"])
+        self.assertEqual(botones["Nave Industrial"]["data-disponible-alquiler"], "false")
+        self.assertEqual(botones["Nave Industrial"]["data-disponible-venta"], "true")
+        self.assertIn("hidden", botones["Nave Industrial"])
+        self.assertIn("disabled", botones["Nave Industrial"])
+        self.assertEqual(self.consultar(operacion="alquiler", tipo="Nave Industrial")["total"], 0)
+        self.assertIn(nave.pk, self.ids(self.consultar(operacion="venta", tipo="Nave Industrial")))
+
+    def test_mapa_sin_tipos_en_alquiler_conserva_opciones_para_venta(self):
+        Propiedad.objects.all().delete()
+        Propiedad.objects.create(
+            fuente="Brega", identificador_fuente="venta", tipo="Nave Industrial", en_venta=True)
+        respuesta = self.client.get("/propiedades/mapa/")
+        self.assertFalse(respuesta.context["hay_tipos_alquiler"])
+        self.assertContains(respuesta, 'id="tipos-vacios">Sin tipos disponibles para alquilar.')
+        self.assertEqual(set(self.botones_tipo(respuesta)), {"Nave Industrial"})
+        self.assertIn("hidden", self.botones_tipo(respuesta)["Nave Industrial"])
 
     def test_selector_de_vistas_es_independiente_del_panel_de_filtros(self):
         respuesta = self.client.get('/propiedades/mapa/')

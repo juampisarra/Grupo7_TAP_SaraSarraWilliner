@@ -7,7 +7,7 @@ Después de confirmar MapTiler, el usuario autorizó recuperar colores, tipograf
 ## Qué está preparado
 
 - Blanco translúcido, azul, Plus Jakarta Sans y emojis del diseño anterior. Panel superior centrado, con ancho según contenido y controles más juntos; buscador arriba limitado a 290 px. En pantallas pequeñas usa dos filas. Controles compactos abajo.
-- Menú hamburguesa de tipos generado desde el catálogo vigente existente. Incluye cualquier categoría nueva de la base, sin limitarse a los 13 ejemplos ni inventar tipos. Mantiene selección única y filtro PostgreSQL exacto.
+- Menú hamburguesa con los tipos que tienen avisos vigentes en la operación seleccionada. Incluye categorías nuevas al recargar, sin limitarse a los 13 ejemplos ni inventar tipos. Mantiene selección única y filtro PostgreSQL exacto.
 - Marcadores individuales con emoji según el tipo y precio de la operación seleccionada. Importes cero son válidos; valores desconocidos dicen Consultar. La tarjeta muestra importe completo y moneda original.
 - La ficha conserva inmobiliaria, aviso original y precisión. Por pedido del usuario se retiró su enlace fijo «Ubicaciones: fuentes originales / OpenStreetMap»; la atribución del mapa y la mención de OpenStreetMap para puntos geocodificados siguen visibles en sus lugares correspondientes.
 - Agrupación de etiquetas superpuestas por píxeles de pantalla. Los puntos idénticos o grupos que ocupan como máximo 12 px en cada eje abren directamente una columna de burbujas con emoji/precio. Los demás acercan automáticamente hasta zoom 18; si todavía se solapan, abren la misma columna. El zoom manual puede seguir acercando y separar puntos distintos. No se modifica, promedia ni redondea ninguna coordenada, ni se calculan distancias geográficas. No se identifica ni fusiona una propiedad por parecido visual, dirección o precio.
@@ -19,6 +19,14 @@ Después de confirmar MapTiler, el usuario autorizó recuperar colores, tipograf
 - Se recorren los enlaces `siguiente` de la API y se conservan orden y filtros: el mapa ya no se limita a los primeros 100 avisos. El contador distingue coincidencias totales y avisos con coordenadas. Solicitudes canceladas no pisan una búsqueda nueva.
 
 MapLibre es el motor activo. Con `MAPTILER_API_KEY` configurada, utiliza Streets v4 de MapTiler; sin clave conserva Bright de OpenFreeMap. Django transmite únicamente esta configuración del mapa mediante `json_script`, escapada para evitar inyección HTML. No se requieren paquetes Python, migraciones, scraping ni reconstrucción de Elasticsearch por este cambio.
+
+## Tipos según Alquilar o Comprar
+
+El menú muestra únicamente las categorías con publicaciones vigentes en la operación elegida. Por ejemplo, Nave Industrial no aparece en Alquilar si todos sus avisos son de venta. Los tipos se obtienen de todo el catálogo con una consulta agrupada al cargar la página, independientemente de los primeros 100 resultados, coordenadas, búsqueda textual, precio o punto. No se consulta Elasticsearch para determinar disponibilidad. Los cambios de la base se reflejan al recargar.
+
+Cambiar operación oculta y deshabilita las opciones incompatibles. Conserva el tipo elegido si está disponible en la nueva operación; de lo contrario vuelve a Todos los tipos antes de buscar, sin duplicar solicitudes. Conserva texto, comodidades, dormitorios y punto; el rango de precio se limpia como antes. Limpiar mantiene la operación actual y las opciones correspondientes. Si ninguna categoría está disponible, se indica para alquilar o comprar.
+
+Validación: 27 pruebas Django de consultas/plantilla aprobadas, con disponibilidad real por operación en una base efímera, categorías vacías/inactivas, ausencia de coordenadas y catálogo independiente de paginación y texto. Node verifica visibilidad, selección compatible/incompatible, parámetros, búsqueda única, limpieza y estados vacíos, junto con las regresiones anteriores. Sintaxis y estáticos comprobados. Se actualizó la versión de CSS/JavaScript a `20261013-tipos-operacion` para solicitar archivos nuevos. Revisión visual independiente pendiente por el bloqueo previo del navegador; no se modificaron datos productivos. Cambios locales, sin commit, push ni despliegue.
 
 ## Vistas Calles, Oscuro y Satélite
 
@@ -85,7 +93,7 @@ El plan Free es sin tarjeta y para usos personales/no comerciales. Con MapLibre,
 
 1. Fondo cargado, controles de cámara y marcadores con ícono/precio; acercar y seleccionar un grupo. Si comparten punto o están casi superpuestos, comprobar la columna sin marco, una burbuja por aviso y cierre al volver a pulsar el grupo. Los grupos más extendidos deben dejar de acercarse automáticamente en zoom 18.
 2. Abrir un aviso y comprobar fotos, enlace original y precisión. Un grupo no implica direcciones exactas ni propiedades duplicadas.
-3. Elegir distintos tipos del menú y comprobar selección, Todos los tipos y limpieza.
+3. Alternar Alquilar/Comprar y comprobar que solo se ofrecen los tipos disponibles para esa operación. Un tipo compartido debe conservarse; uno incompatible debe volver a Todos los tipos. Comprobar también desactivación al repetir el clic y limpieza.
 4. Comparar escribir `con cochera y patio` con seleccionar Cochera/Patio sin texto libre: ambos envían ese mismo `q` y conservan el ranking.
 5. Probar punto con 500 m, 1 km y 2 km, quitarlo, cambiar operación y activar aproximadas para comprobar la advertencia. Un radio de 2001 en la API debe devolver 400.
 6. Revisar un resultado de más de 100 avisos y distinguir los que carecen de coordenadas. Reintentar un error no debe disparar scraping.

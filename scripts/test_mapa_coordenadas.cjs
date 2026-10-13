@@ -37,7 +37,10 @@ class Elemento {
 function entorno() {
     const elementos = new Map(), marcadores = [];
     const porId = id => { if (!elementos.has(id)) elementos.set(id, new Elemento()); return elementos.get(id); };
-    const tipos = ['Casa','Campo','Nave Industrial'].map(tipo => { const b = new Elemento('button'); b.dataset.filterTipo = tipo; return b; });
+    const tipos = ['Casa','Campo','Nave Industrial'].map(tipo => {
+        const b = new Elemento('button'); b.dataset.filterTipo = tipo;
+        b.dataset.disponibleAlquiler = 'true'; b.dataset.disponibleVenta = 'true'; return b;
+    });
     const comodidades = ['Cochera','Patio'].map(tipo => { const b = new Elemento('button'); b.dataset.filterCaracteristica = tipo; return b; });
     const estilos = ['calles', 'oscuro', 'satelite'].map(nombre => {
         const b = new Elemento('button'); b.dataset.estiloMapa = nombre; return b;
@@ -152,6 +155,62 @@ async function main() {
     e.UI.limpiarFiltros();
     assert.equal(e.state.punto, null); assert.equal(e.state.radio, 1000); assert.equal(e.state.texto, '');
     assert.equal(e.crearParametros().has('q'), false);
+
+    const tiposOperacion = entorno();
+    const [casa, campo, nave] = tiposOperacion.tipos;
+    campo.dataset.disponibleVenta = 'false';
+    nave.dataset.disponibleAlquiler = 'false';
+    const consultasTipos = [];
+    tiposOperacion.PropertyApiClient.buscarPropiedades = () => consultasTipos.push(tiposOperacion.crearParametros());
+    tiposOperacion.UI.init();
+    assert.deepEqual(tiposOperacion.tipos.map(b => b.hidden), [false, false, true], 'Alquilar oculta tipos disponibles solo en venta');
+    assert.equal(nave.disabled, true);
+    assert.equal(tiposOperacion.porId('tipos-vacios').hidden, true);
+    nave.eventos.click();
+    assert.equal(consultasTipos.length, 0, 'Un tipo oculto no activa una consulta');
+    casa.eventos.click();
+    tiposOperacion.state.texto = 'luminoso';
+    tiposOperacion.state.caracteristicas.add('Patio');
+    tiposOperacion.state.dormitorios = '2';
+    tiposOperacion.state.punto = { lat: 0, lng: 0 };
+    tiposOperacion.porId('tipos-menu').open = true;
+    tiposOperacion.porId('btn-op-venta').eventos.click();
+    assert.deepEqual(tiposOperacion.tipos.map(b => b.hidden), [false, true, false], 'Comprar cambia las opciones inmediatamente');
+    assert.equal(tiposOperacion.state.tipo, 'Casa', 'Conserva un tipo disponible en ambas operaciones');
+    assert.equal(casa.getAttribute('aria-pressed'), 'true');
+    assert.equal(tiposOperacion.porId('tipos-menu').open, false);
+    nave.eventos.click();
+    const antesDeCambiar = consultasTipos.length;
+    tiposOperacion.porId('btn-op-alquiler').eventos.click();
+    assert.equal(consultasTipos.length, antesDeCambiar + 1, 'Limpiar un tipo incompatible no duplica búsquedas');
+    assert.equal(tiposOperacion.state.tipo, null);
+    assert.equal(tiposOperacion.porId('tipo-seleccionado').textContent, 'Todos los tipos');
+    assert.equal(tiposOperacion.porId('btn-todos-tipos').getAttribute('aria-pressed'), 'true');
+    assert.equal(nave.getAttribute('aria-pressed'), 'false');
+    const trasCambiar = consultasTipos.at(-1);
+    assert.equal(trasCambiar.get('operacion'), 'alquiler');
+    assert.equal(trasCambiar.has('tipo'), false);
+    assert.equal(trasCambiar.get('q'), 'luminoso con patio');
+    assert.equal(trasCambiar.get('dormitorios'), '2');
+    assert.equal(trasCambiar.get('latitud'), '0');
+    campo.eventos.click();
+    tiposOperacion.porId('btn-op-venta').eventos.click();
+    assert.equal(tiposOperacion.state.tipo, null, 'También limpia un tipo exclusivo de alquiler al comprar');
+    assert.equal(campo.hidden, true);
+    assert.equal(nave.hidden, false);
+    nave.eventos.click();
+    tiposOperacion.UI.limpiarFiltros();
+    assert.equal(tiposOperacion.state.tipo, null);
+    assert.equal(nave.hidden, false, 'Limpiar mantiene la disponibilidad de la operación actual');
+    assert.equal(campo.hidden, true);
+    tiposOperacion.tipos.forEach(b => { b.dataset.disponibleAlquiler = 'false'; });
+    tiposOperacion.porId('btn-op-alquiler').eventos.click();
+    assert.ok(tiposOperacion.tipos.every(b => b.hidden && b.disabled));
+    assert.equal(tiposOperacion.porId('tipos-vacios').hidden, false);
+    assert.equal(tiposOperacion.porId('tipos-vacios').textContent, 'Sin tipos disponibles para alquilar.');
+    tiposOperacion.tipos.forEach(b => { b.dataset.disponibleVenta = 'false'; });
+    tiposOperacion.porId('btn-op-venta').eventos.click();
+    assert.equal(tiposOperacion.porId('tipos-vacios').textContent, 'Sin tipos disponibles para comprar.');
 
     const api = entorno();
     const urls = [];

@@ -576,12 +576,17 @@
                 document.getElementById('precio-min').value = ''; document.getElementById('precio-max').value = '';
                 document.getElementById('moneda-precio').textContent = operacion === 'alquiler' ? 'ARS' : 'USD';
                 ['alquiler', 'venta'].forEach((op) => this.activar(document.getElementById('btn-op-' + op), op === operacion));
+                this.actualizarTipos();
+                document.getElementById('tipos-menu').open = false;
                 this.buscar();
             }));
             document.querySelectorAll('[data-filter-tipo]').forEach((btn) => {
                 btn.textContent = iconoTipo(btn.dataset.filterTipo) + ' ' + btn.dataset.filterTipo;
-                btn.addEventListener('click', () => this.seleccionarTipo(state.tipo === btn.dataset.filterTipo ? null : btn.dataset.filterTipo));
+                btn.addEventListener('click', () => {
+                    if (!btn.disabled && !btn.hidden) this.seleccionarTipo(state.tipo === btn.dataset.filterTipo ? null : btn.dataset.filterTipo);
+                });
             });
+            this.actualizarTipos();
             document.getElementById('btn-todos-tipos').addEventListener('click', () => this.seleccionarTipo(null));
             document.querySelectorAll('[data-filter-caracteristica]').forEach((btn) => btn.addEventListener('click', () => {
                 const valor = btn.dataset.filterCaracteristica;
@@ -648,11 +653,27 @@
             const aviso = document.getElementById('estilo-error');
             aviso.textContent = texto; aviso.hidden = !texto;
         }
+        static actualizarTipos() {
+            const botones = [...document.querySelectorAll('[data-filter-tipo]')];
+            const campo = state.operacion === 'alquiler' ? 'disponibleAlquiler' : 'disponibleVenta';
+            botones.forEach((btn) => {
+                const disponible = btn.dataset[campo] === 'true';
+                btn.hidden = !disponible;
+                btn.disabled = !disponible;
+            });
+            if (state.tipo !== null && !botones.some(btn => !btn.hidden && btn.dataset.filterTipo === state.tipo)) {
+                state.tipo = null;
+            }
+            botones.forEach(btn => this.activar(btn, btn.dataset.filterTipo === state.tipo));
+            this.activar(document.getElementById('btn-todos-tipos'), state.tipo === null);
+            document.getElementById('tipo-seleccionado').textContent = state.tipo ? iconoTipo(state.tipo) + ' ' + state.tipo : 'Todos los tipos';
+            const vacios = document.getElementById('tipos-vacios');
+            vacios.hidden = botones.some(btn => !btn.hidden);
+            vacios.textContent = 'Sin tipos disponibles para ' + (state.operacion === 'alquiler' ? 'alquilar.' : 'comprar.');
+        }
         static seleccionarTipo(tipo) {
             state.tipo = tipo;
-            document.querySelectorAll('[data-filter-tipo]').forEach((btn) => this.activar(btn, btn.dataset.filterTipo === tipo));
-            this.activar(document.getElementById('btn-todos-tipos'), tipo === null);
-            document.getElementById('tipo-seleccionado').textContent = tipo ? iconoTipo(tipo) + ' ' + tipo : 'Todos los tipos';
+            this.actualizarTipos();
             document.getElementById('tipos-menu').open = false;
             this.buscar();
         }
@@ -667,9 +688,7 @@
             state.punto = null; state.radio = 1000; state.incluirAproximadas = false; state.seleccionandoPunto = false;
             ['busqueda', 'dormitorios', 'precio-min', 'precio-max'].forEach((id) => { document.getElementById(id).value = ''; });
             document.getElementById('distancia').value = '1000'; document.getElementById('incluir-aproximadas').checked = false;
-            document.getElementById('tipo-seleccionado').textContent = 'Todos los tipos';
-            document.querySelectorAll('[data-filter-tipo]').forEach((btn) => this.activar(btn, false));
-            this.activar(document.getElementById('btn-todos-tipos'), true);
+            this.actualizarTipos();
             document.querySelectorAll('[data-filter-caracteristica]').forEach((btn) => this.activar(btn, false));
             document.getElementById('tipos-menu').open = false; document.getElementById('mas-filtros').open = false;
             MapManager.actualizarPunto(); this.actualizarPunto(); this.buscar();
