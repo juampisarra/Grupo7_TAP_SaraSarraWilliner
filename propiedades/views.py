@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.paginator import EmptyPage
 from django.db import NotSupportedError
 from django.db.models import Q
@@ -96,4 +97,7 @@ def mapa_propiedades(request):
     # Catálogo completo, independiente de la página de resultados del mapa.
     tipos = Propiedad.objects.filter(Q(en_venta=True) | Q(en_alquiler=True)).exclude(
         tipo="").order_by("tipo").values_list("tipo", flat=True).distinct()
-    return render(request, "propiedades/mapa.html", {"tipos_propiedad": tipos})
+    return render(request, "propiedades/mapa.html", {
+        "tipos_propiedad": tipos,
+        "map_config": {"maptilerApiKey": settings.MAPTILER_API_KEY},
+    })

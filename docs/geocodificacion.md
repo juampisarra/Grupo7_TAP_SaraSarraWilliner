@@ -195,6 +195,8 @@ Con `todas`, límite `100` y cursor `0`, los 23 procesados indican el final del 
 
 ## API y mapa
 
+La mejora posterior de interfaz del 12 de octubre conserva esta evidencia y las coordenadas efectivas. Agrega agrupación visual de etiquetas cercanas y carga completa de páginas, sin redondear ni desplazar puntos. El radio de búsqueda se aplica solo en PostGIS y admite hasta 2 km. Ver [guía del mapa](mapa.md); los párrafos anteriores describen la primera etapa de agrupación.
+
 La API agrega `ubicacion_info` con `origen`, `precision`, `metodo_fuente`, `punto_original` y `atribucion`. Las referencias OSM, firma interna y caché quedan en el backend. Los campos anteriores de coordenadas y precisión se conservan.
 
 El mapa agrupa coordenadas exactamente iguales entre los avisos cargados y permite elegir uno mediante una lista. No desplaza los puntos ni redondea para agrupar. La tarjeta distingue ubicación desconocida, aproximada, tratada como exacta según la política de la fuente y geocodificada por dirección; incluye atribución OSM. La agrupación no corrige coordenadas y opera sobre los resultados cargados por el frontend, que todavía tiene sus límites de paginación anteriores.

@@ -223,6 +223,21 @@ class ConsultaPropiedadesTests(TestCase):
         self.assertContains(respuesta, "Observatorio Inmobiliario")
         self.assertContains(respuesta, "Alquilar")
 
+    @override_settings(MAPTILER_API_KEY="")
+    def test_mapa_sin_clave_conserva_configuracion_opcional(self):
+        respuesta = self.client.get("/propiedades/mapa/")
+        self.assertEqual(respuesta.context["map_config"], {"maptilerApiKey": ""})
+        self.assertContains(respuesta, 'data-engine="maplibre"')
+
+    @override_settings(MAPTILER_API_KEY='prueba</script><script>alert(1)</script>&')
+    def test_clave_de_mapa_se_serializa_sin_inyectar_html(self):
+        respuesta = self.client.get("/propiedades/mapa/")
+        self.assertContains(respuesta, 'id="map-config" type="application/json"')
+        self.assertEqual(respuesta.context["map_config"]["maptilerApiKey"],
+                         'prueba</script><script>alert(1)</script>&')
+        self.assertNotContains(respuesta, '<script>alert(1)</script>')
+        self.assertContains(respuesta, r'\u003C/script\u003E')
+
     def test_mapa_ofrece_tipos_vigentes_y_nuevos_sin_depender_de_la_pagina(self):
         nave = Propiedad.objects.create(
             fuente="Brega", identificador_fuente="nave", tipo="Nave Industrial", en_venta=True)

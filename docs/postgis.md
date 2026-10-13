@@ -36,7 +36,7 @@ Rectángulo:
 
 Las coordenadas son ejemplos de consulta, no ubicaciones asignadas a avisos. Los filtros ya se verificaron también en Render.
 
-- Radio: los tres parámetros son obligatorios; `radio_m` acepta desde cero hasta 20.000.000 metros. `ST_DWithin` incluye el límite del radio.
+- Radio: los tres parámetros son obligatorios; `radio_m` acepta desde cero hasta 2.000 metros, por la decisión del equipo del 12 de octubre para la búsqueda por punto. El frontend ofrece 500 m, 1 km (predeterminado) y 2 km. `ST_DWithin` incluye el límite del radio. Un valor superior responde 400 antes de consultar la base.
 - Área: los cuatro límites son obligatorios; se requiere `oeste < este` y `sur < norte`. `ST_Covers` incluye los puntos en el borde. No admite rectángulos que crucen el antimeridiano ni polígonos arbitrarios todavía.
 - Se admite radio **o** área por solicitud. No se aceptan valores no finitos, coordenadas fuera de rango o radios negativos.
 - Sin parámetros espaciales se conserva el listado normal. No cambia el filtro predeterminado de alquiler.

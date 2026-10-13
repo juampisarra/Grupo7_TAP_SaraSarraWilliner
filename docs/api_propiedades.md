@@ -131,8 +131,10 @@ Referencias de implementación: [Paginator de Django](https://docs.djangoproject
 
 ## Tipos disponibles en el mapa
 
+Actualización de interfaz: los tipos aparecen ahora en un menú hamburguesa, con Todos los tipos como control separado del catálogo. El mapa recorre todas las páginas de resultados, agrega búsqueda libre, precios/dormitorios y punto con distancia máxima de 2 km. Equipamiento se quitó por decisión del usuario. Leaflet sigue activo; la activación manual de MapLibre + OpenFreeMap está explicada en [la guía del mapa](mapa.md). Estos cambios locales todavía no se publicaron.
+
 La página `/propiedades/mapa/` genera sus botones de tipo desde las categorías no vacías de todas las publicaciones vigentes (venta o alquiler), ordenadas y sin duplicados. No se limita a los resultados cargados ni depende de Elasticsearch. Se conservan los valores originales: Cochera como tipo es distinto del filtro textual de comodidad Cochera. Una categoría nueva aparece al recargar la página, sin agregar botones manualmente. Las categorías presentes únicamente en avisos inactivos no se ofrecen; una categoría disponible solo en venta puede devolver cero al elegir alquiler.
 
-Los botones mantienen selección única, desactivación al pulsar nuevamente y limpieza con Limpiar. El backend continúa usando coincidencia completa `tipo__iexact`, sin agrupar categorías ni convertir Departamento en Monoambiente por dormitorios. Escritorio admite varias filas; pantallas pequeñas conservan el desplazamiento horizontal de la barra. Sin publicaciones tipificadas aparece “Sin tipos disponibles”.
+El menú mantiene selección única, desactivación al pulsar nuevamente, Todos los tipos y limpieza con Limpiar. El backend continúa usando coincidencia completa `tipo__iexact`, sin agrupar categorías ni convertir Departamento en Monoambiente por dormitorios. Las opciones aparecen en una lista desplegable de dos columnas con desplazamiento vertical, también en pantallas pequeñas. Sin publicaciones tipificadas aparece “Sin tipos disponibles”.
 
 Revisión de solo lectura del 12 de octubre de 2026: 14 tipos vigentes en Supabase. Mejora local, pendiente de publicación; no necesita scraping, reconstrucción del índice ni migración propia. Al publicar el conjunto de cambios de coordenadas también debe aplicarse `0013`.

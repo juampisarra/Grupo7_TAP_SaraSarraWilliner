@@ -12,7 +12,7 @@ Las tres features principales acordadas son:
 2. Búsqueda de texto completo con Elasticsearch y ranking por relevancia.
 3. Búsqueda web con filtros estructurados y geográficos, utilizando exclusivamente PostGIS para la lógica geográfica.
 
-La prioridad es mantener el backend y su integración con el frontend ya incorporado por el equipo. `/propiedades/mapa/` utiliza Django Templates, JavaScript y Leaflet; `/propiedades/` conserva el listado de prueba. No rediseñar la interfaz ni adoptar otro framework sin una decisión del equipo. La mejora actual de coordenadas incluye representar honestamente su precisión en el mapa.
+La prioridad es mantener el backend y su integración con el frontend ya incorporado por el equipo. `/propiedades/mapa/` utiliza Django Templates, JavaScript y MapLibre GL JS; `/propiedades/` conserva el listado de prueba. MapTiler es el proveedor opcional de mapas/edificios, con OpenFreeMap sin clave. No adoptar otro framework sin una decisión del equipo. Representar honestamente la precisión de las coordenadas.
 
 Los resúmenes del mercado y análisis históricos siguen siendo posibles ampliaciones, no requisitos iniciales. No se trata de un sistema de gestión de contratos o alquileres.
 
@@ -27,7 +27,7 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | Elasticsearch / Elastic Cloud | Elasticsearch es el índice especializado exclusivamente en búsqueda de texto completo y ranking por relevancia; se alojará en Elastic Cloud. No reemplaza PostgreSQL ni realiza filtros geográficos. |
 | Render | Django está desplegado y conectado a Supabase y Elastic Cloud. `/propiedades/` permite probar búsqueda textual por relevancia mediante un formulario simple. |
 | GitHub Actions | Ejecuta el comando general de ingesta y reconstruye Elasticsearch todos los lunes a las 00:00 de Argentina; también admite ejecución manual. Secrets, concurrencia y primera ejecución están verificados. |
-| Frontend | Implementado en `/propiedades/mapa/`: HTML5 (Django Templates), CSS3 Glassmorphism responsivo, JavaScript ES6+ modular y Leaflet.js con Esri WorldStreetMap. Consume `/api/propiedades/` coordinando Elasticsearch y PostGIS. |
+| Frontend | `/propiedades/mapa/` utiliza Django Templates, CSS, JavaScript y MapLibre GL JS, activado por el usuario. Con `MAPTILER_API_KEY` usa Streets v4 de MapTiler; sin clave utiliza OpenFreeMap. Consulta todas las páginas de la API, coordinando Elasticsearch y PostGIS desde Django. |
 
 Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron independientemente las migraciones hasta `0012` en Supabase el 12 de octubre de 2026; posteriormente el usuario compartió logs productivos de enriquecimiento que utilizan el esquema `0013`, con ocho aplicaciones. No se repitió la auditoría independiente de migraciones después de esos logs. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS y la búsqueda con Elasticsearch están desplegados. La ingesta programada reconstruye el índice completo después de persistir; la actualización incremental por publicación sigue pendiente. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
 
@@ -56,6 +56,28 @@ Preparar solicitudes periódicas desde un servicio externo a una ruta ligera de 
 La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](https://cron-job.org/en/); falta comprobar una ejecución programada HTTP 200 en su historial y el intervalo efectivamente guardado (se propuso GET cada diez minutos). No presentar la creación del job como prueba de ejecución. Vercel fue una opción consultada, no adoptada.
 
 ## Estado real del repositorio
+
+### MapTiler y siguiente etapa de interfaz — 13 de octubre de 2026
+
+El usuario activó MapLibre 6.14.0 en la plantilla y después autorizó probar MapTiler para mejorar cobertura de construcciones. Se agregó `MAPTILER_API_KEY` opcional desde `.env`/Environment de Render, transmitida por `json_script` al navegador. Es una clave cartográfica pública, restringida por Allowed HTTP origins en MapTiler; no es la SECRET_KEY de Django ni una credencial del backend. Usar claves separadas para localhost/127.0.0.1 y el dominio productivo; no versionar sus valores. Ver [guía local y Render](docs/mapa.md).
+
+El controlador elige Streets v4 si hay clave y Bright/OpenFreeMap si no la hay. Reutiliza Building 3D del estilo, o su origen building si debe agregar una extrusión, sin descargar edificios de otro proveedor ni duplicar fuentes. Conserva logo MapTiler y atribución. Lee height/height_min de Planet v4 y render_* de OpenMapTiles; el respaldo ilustrativo de 6 m no acredita alturas reales ni precisión de propiedades. No hay fallback automático ante errores de cuota/clave: quitar la variable y reiniciar vuelve a OpenFreeMap.
+
+La clave local guardada por el usuario respondió HTTP 200 a Streets v4; se verificaron Building, Building 3D visible desde zoom 15 y Building number del origen maptiler_planet_v4. Validación: 211 pruebas de propiedades, 209 aprobadas y dos PostGIS omitidas con SQLite; pruebas Node de ambos proveedores/edificios sin duplicación y check/estáticos/sintaxis correctos. No afirmar cobertura completa de Rafaela ni inspección visual real. Sin migraciones, paquetes, ingesta, reconstrucción de Elasticsearch o cambios de datos productivos; commit/push/despliegue siguen a cargo del usuario.
+
+Decisiones confirmadas para la siguiente etapa: recuperar colores, tipografía y emojis del diseño anterior; buscador arriba de menor ancho; separar grupos al acercar cuando sus puntos difieren; para puntos compartidos, expandir visualmente los n avisos en círculo al pulsar el grupo. La expansión deberá conservar los puntos reales y diferenciarse de una corrección geográfica. El usuario pidió primero MapTiler y después estos cambios de interfaz: todavía no implementarlos en esta etapa. Equipamiento sigue retirado según su decisión anterior. Las notas inferiores conservan sus estados históricos.
+
+### Mejoras de interfaz y búsqueda por punto — 12 de octubre de 2026
+
+El usuario autorizó implementar diseño propio, agrupación visual, íconos por tipo con precio, menú hamburguesa del catálogo dinámico, buscador libre y panel inferior. Confirmó quitar Equipamiento y buscar alrededor de un punto con 1 km predeterminado y opciones 500 m/1 km/2 km; no pidió herramientas para dibujar radio o rectángulos. El backend ahora limita `radio_m` a 2000 metros, manteniendo la consulta PostGIS y la política de precisión. Los endpoints de rectángulo existentes se conservan, sin nuevo control de dibujo.
+
+Cambios preparados localmente en plantilla/CSS/JavaScript y validación del radio. El mapa recorre todas las páginas de la API, distingue coincidencias y avisos con coordenadas, cancela búsquedas anteriores sin pisar resultados y muestra fallos de Elasticsearch sin reemplazarlo por búsqueda de palabras en el navegador. Comodidades y texto se combinan en `q`; tipo/dormitorios/precio/operación siguen en PostgreSQL. Moneda sin selector: al comparar precios, alquiler ARS y venta USD, conservando la moneda real de cada aviso y limpiando el rango cuando cambia operación.
+
+La agrupación visual usa posiciones en píxeles y ancla el grupo en un punto de sus avisos. No corrige ni desplaza coordenadas, no calcula distancias geográficas y conserva selección/lista/advertencias de precisión del pull. El catálogo sigue siendo dinámico: incluye Campo y los demás tipos disponibles, no una lista fija de 13.
+
+El usuario hará la instalación/activación de MapLibre GL JS + OpenFreeMap. El controlador tiene compatibilidad preparada con cámara inclinada, capa de edificios, marcadores, grupos y punto; la plantilla sigue cargando Leaflet y usa `data-engine="leaflet"`. No presentar la migración como activa. Seguir [docs/mapa.md](docs/mapa.md): cambiar el CSS CDN, `data-engine` y los scripts por la importación de MapLibre y luego del controlador. No exige npm, paquetes Python, claves nuevas, migraciones, scraping ni reconstrucción de Elasticsearch. Diseño WebGL/cobertura 3D reales y revisión visual pendientes.
+
+Validación: 216 pruebas Django, 214 aprobadas y dos integraciones PostGIS omitidas con SQLite; pruebas Node de coordenadas/grupos, íconos/precios, consulta, punto, páginas, errores, concurrencia y adaptador MapLibre con objetos simulados; sintaxis y estáticos verificados. Chromium de prueba no estaba instalado y Edge headless no pudo arrancar: no afirmar inspección visual. No se modificaron datos productivos ni se ejecutaron ingestas. No hubo commit/push/despliegue; el usuario mantiene la publicación. Las secciones históricas que siguen describen etapas previas.
 
 ### Workflow de coordenadas: estado operativo informado por el usuario — 12 de octubre de 2026
 

@@ -1,5 +1,6 @@
 from decimal import Decimal
 from unittest import skipUnless
+from unittest.mock import patch
 
 from django.db import connection, NotSupportedError
 from django.test import SimpleTestCase, TestCase, override_settings
@@ -10,6 +11,23 @@ from .models import Propiedad
 
 
 class EntradasGeograficasTests(SimpleTestCase):
+    def test_radio_maximo_de_dos_km_validado_antes_de_consultar(self):
+        with patch('propiedades.geografia._contexto') as contexto:
+            for radio in (2000.01, 2001, 20000000):
+                with self.subTest(radio=radio), self.assertRaisesRegex(ValueError, '2000'):
+                    filtrar_radio(Propiedad.objects.all(), 0, 0, radio)
+            contexto.assert_not_called()
+        with patch('propiedades.geografia._contexto', return_value=('"extensions"', '"tabla"')):
+            with patch('propiedades.geografia._filtrar', return_value=[]) as filtrar:
+                filtrar_radio(Propiedad.objects.all(), 0, 0, 2000)
+                self.assertEqual(filtrar.call_args.args[3], (0.0, 0.0, 2000.0))
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
+    def test_api_rechaza_radio_superior_a_dos_km_sin_consultar_base(self):
+        respuesta = self.client.get('/api/propiedades/', {'latitud': '0', 'longitud': '0', 'radio_m': '2001'})
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertIn('2000', respuesta.json()['error'])
+
     def test_rechaza_incompletos_no_finitos_y_areas_invalidas(self):
         casos = [
             {"latitud": "-31"},

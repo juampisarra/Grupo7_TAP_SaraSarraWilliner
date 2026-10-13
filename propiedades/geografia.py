@@ -9,6 +9,8 @@ import math
 from django.db import connections, NotSupportedError
 from django.db.models.expressions import RawSQL
 
+MAX_RADIO_M = 2000
+
 
 def numero(valor, nombre, minimo, maximo):
     try:
@@ -48,7 +50,7 @@ def _filtrar(queryset, tabla, condicion, parametros, incluir_aproximadas):
 def filtrar_radio(queryset, latitud, longitud, radio_m, *, incluir_aproximadas=False):
     latitud = numero(latitud, "latitud", -90, 90)
     longitud = numero(longitud, "longitud", -180, 180)
-    radio_m = numero(radio_m, "radio_m", 0, 20_000_000)
+    radio_m = numero(radio_m, "radio_m", 0, MAX_RADIO_M)
     schema, tabla = _contexto(queryset)
     return _filtrar(queryset, tabla,
         f'{schema}.ST_DWithin(ubicacion, {schema}.ST_SetSRID('

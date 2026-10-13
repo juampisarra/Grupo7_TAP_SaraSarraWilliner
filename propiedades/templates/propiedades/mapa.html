@@ -4,155 +4,144 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa Interactivo de Propiedades — Rafaela | Observatorio Inmobiliario</title>
-
-    <!-- Leaflet CSS desde CDN -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossorigin="" />
-
-    <!-- Estilos de la Interfaz del Mapa (Glassmorphism & Micro-interacciones) -->
+    <title>Explorar propiedades · Observatorio Inmobiliario</title>
+    <!-- MapLibre dibuja el mapa; el proveedor se configura desde Django. -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
     <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}">
 </head>
 <body>
-    <div class="app-container">
-        <!-- 1. Mapa Base a Pantalla Completa (OpenStreetMap Gratuito) -->
-        <main class="map-viewport">
-            <div id="map"></div>
-        </main>
+<div class="app-container">
+    <main class="map-viewport" aria-label="Mapa de propiedades">
+        <div id="map" data-engine="maplibre" aria-label="Propiedades y sus ubicaciones"></div>
+    </main>
 
-        <!-- 2. Isla Flotante de Comandos y Filtros (Estilo Glassmorphism Claude) -->
-        <div class="floating-dock-container">
-            <!-- Encabezado Flotante -->
-            <header class="floating-header">
-                <a href="{% url 'propiedades:mapa' %}" class="brand">
-                    <span class="brand-icon">🗺️</span>
-                    <div>
-                        <h1 class="brand-title">Observatorio Inmobiliario</h1>
-                        <span class="brand-subtitle">Rafaela, Santa Fe</span>
-                    </div>
-                </a>
+    <header class="floating-header">
+        <a href="{% url 'propiedades:mapa' %}" class="brand">
+            <span class="brand-icon" aria-hidden="true">OI<span>.</span></span>
+            <span><strong class="brand-title">Observatorio Inmobiliario</strong><span class="brand-subtitle">Explorá Rafaela y su zona</span></span>
+        </a>
+        <nav class="segmented-control" aria-label="Operación">
+            <button type="button" id="btn-op-alquiler" class="active" aria-pressed="true">Alquilar</button>
+            <button type="button" id="btn-op-venta" aria-pressed="false">Comprar</button>
+        </nav>
+        <form id="form-busqueda" class="search-form" role="search">
+            <label for="busqueda" class="sr-only">Buscar en los avisos</label>
+            <input id="busqueda" name="q" type="search" maxlength="300" placeholder="¿Qué estás buscando? Cochera, quincho…">
+            <button type="submit">Buscar</button>
+        </form>
+    </header>
 
-                <!-- Selector Segmentado Alquilar / Comprar -->
-                <nav class="segmented-control" aria-label="Tipo de operación">
-                    <button type="button" id="btn-op-alquiler" class="active">Alquilar</button>
-                    <button type="button" id="btn-op-venta">Comprar</button>
-                </nav>
-
-                <!-- Acciones y Contador -->
-                <div class="header-actions">
-                    <div class="results-badge" id="results-badge">
-                        <span class="dot"></span>
-                        <span id="results-count">Cargando...</span>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Barra de Filtros Flotante con Micro-interacciones -->
-            <section class="floating-filters" aria-label="Filtros de búsqueda">
-                <!-- Tipo de Inmueble -->
-                <div class="filter-group filter-group--tipos">
-                    <span class="filter-group-title">Tipo:</span>
-                    {% for tipo in tipos_propiedad %}
-                    <button type="button" class="filter-chip" data-filter-tipo="{{ tipo }}">{{ tipo }}</button>
-                    {% empty %}
-                    <span class="filter-group-title">Sin tipos disponibles</span>
-                    {% endfor %}
-                </div>
-
-                <div class="filter-divider"></div>
-
-                <!-- Características (Elasticsearch) -->
-                <div class="filter-group">
-                    <span class="filter-group-title">Comodidades:</span>
-                    <button type="button" class="filter-chip" data-filter-caracteristica="Cochera">🚗 Cochera</button>
-                    <button type="button" class="filter-chip" data-filter-caracteristica="Patio">🌿 Patio</button>
-                    <button type="button" class="filter-chip" data-filter-caracteristica="Pileta">🏊 Pileta</button>
-                    <button type="button" class="filter-chip" data-filter-caracteristica="Balcón">🏢 Balcón</button>
-                    <button type="button" class="filter-chip" data-filter-caracteristica="Terraza">☀️ Terraza</button>
-                </div>
-
-                <div class="filter-divider"></div>
-
-                <!-- Equipamiento (Elasticsearch) -->
-                <div class="filter-group">
-                    <span class="filter-group-title">Equipamiento:</span>
-                    <button type="button" class="filter-chip" data-filter-equipamiento="Amoblado">🛋️ Amoblado</button>
-                    <button type="button" class="filter-chip" data-filter-equipamiento="Aire Acondicionado">❄️ Aire Acond.</button>
-                </div>
-
-                <div class="filter-divider"></div>
-
-                <!-- Botón Limpiar -->
-                <button type="button" class="filter-chip clear-btn" id="btn-limpiar-filtros" title="Restablecer filtros">
-                    ✕ Limpiar
-                </button>
-            </section>
+    <div class="status-stack" aria-live="polite">
+        <div class="search-error" id="search-error" role="alert" hidden>
+            <span id="error-text"></span><button type="button" id="btn-reintentar">Reintentar</button>
         </div>
-
-        <!-- 3. Toast de Carga en Tiempo Real -->
-        <div class="loading-toast" id="loading-toast" hidden>
-            <div class="spinner"></div>
-            <span>Buscando con Elasticsearch...</span>
-        </div>
-
-        <!-- 4. Banner de 0 Resultados -->
+        <p class="precision-notice" id="aviso-precision" hidden></p>
         <div class="empty-results-banner" id="empty-results-banner" hidden>
-            <span>No encontramos inmuebles con esa combinación de filtros.</span>
-            <button type="button" id="btn-reset-empty">Restablecer</button>
+            <span id="empty-text"></span><button type="button" id="btn-reset-empty">Limpiar filtros</button>
         </div>
-
-        <!-- 5. Tarjeta Flotante Superpuesta de Propiedad (Popup / Overlay) -->
-        <article class="property-card-overlay" id="property-card" hidden aria-live="polite">
-            <!-- Carrusel de Fotos -->
-            <div class="card-media">
-                <img id="card-image" src="" alt="Foto de la propiedad" loading="lazy" decoding="async">
-                <div class="card-media-placeholder" id="card-image-placeholder" hidden>
-                    <span class="icon">📷</span>
-                    <span>Foto no disponible</span>
-                </div>
-
-                <button type="button" class="carousel-nav-btn prev" id="carousel-btn-prev" aria-label="Foto anterior" hidden>❮</button>
-                <button type="button" class="carousel-nav-btn next" id="carousel-btn-next" aria-label="Siguiente foto" hidden>❯</button>
-                <span class="carousel-badge" id="card-carousel-counter" hidden>1 / 1</span>
-
-                <button type="button" class="card-close-btn" id="card-close-btn" aria-label="Cerrar tarjeta">✕</button>
-            </div>
-
-            <!-- Contenido de la Tarjeta -->
-            <div class="card-content">
-                <div class="card-header-row">
-                    <span class="card-price" id="card-price">$ 0</span>
-                    <span class="card-operation-tag" id="card-operation-tag">Alquiler</span>
-                </div>
-
-                <h2 class="card-title" id="card-title">Título de la propiedad</h2>
-                <p class="card-location" id="card-location">📍 Dirección</p>
-                <p class="card-location" id="card-location-precision"></p>
-                <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Datos de ubicación: OpenStreetMap / fuentes originales</a>
-
-                <!-- Especificaciones (Dormitorios, Ambientes, Baños) -->
-                <div class="card-specs-row" id="card-specs"></div>
-
-                <!-- Etiquetas de comodidades destacadas -->
-                <div class="card-features-row" id="card-features"></div>
-
-                <!-- Botón de redirección con el link original -->
-                <a id="card-cta-btn" class="card-cta-btn" href="#" target="_blank" rel="noopener noreferrer">
-                    Ver aviso original ↗
-                </a>
-
-                <span class="card-agency-source" id="card-agency-source">Inmobiliaria</span>
-            </div>
-        </article>
     </div>
 
-    <!-- Leaflet JS desde CDN -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-            crossorigin=""></script>
+    <section class="floating-filters" id="filter-dock" aria-label="Búsqueda y filtros">
+        <div class="filters-main">
+            <details id="tipos-menu" class="filter-menu">
+                <summary>
+                    <span class="hamburger" aria-hidden="true">☰</span>
+                    <span id="tipo-seleccionado">Todos los tipos</span><span aria-hidden="true">⌃</span>
+                </summary>
+                <div class="filter-popover">
+                    <p class="filter-group-title">Tipo de inmueble</p>
+                    <div class="tipo-opciones">
+                        <button type="button" class="filter-chip active" id="btn-todos-tipos" aria-pressed="true">Todos los tipos</button>
+                        {% for tipo in tipos_propiedad %}
+                        <button type="button" class="filter-chip" data-filter-tipo="{{ tipo }}" aria-pressed="false">{{ tipo }}</button>
+                        {% empty %}
+                        <span>Sin tipos disponibles</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </details>
+            <details id="mas-filtros" class="filter-menu">
+                <summary>Precio y dormitorios <span aria-hidden="true">⌃</span></summary>
+                <div class="filter-popover structural-filters">
+                    <label for="dormitorios">Dormitorios</label>
+                    <select id="dormitorios">
+                        <option value="">Cualquier cantidad</option>
+                        <option value="0">0 dormitorios</option>
+                        <option value="1">1 dormitorio</option>
+                        <option value="2">2 dormitorios</option>
+                        <option value="3">3 dormitorios</option>
+                        <option value="4">4 dormitorios</option>
+                        <option value="5">5 dormitorios</option>
+                    </select>
+                    <p class="filter-group-title">Precio en <span id="moneda-precio">ARS</span></p>
+                    <div class="price-fields">
+                        <label for="precio-min">Desde<input type="number" id="precio-min" min="0" step="0.01" placeholder="Sin mínimo" inputmode="decimal"></label>
+                        <label for="precio-max">Hasta<input type="number" id="precio-max" min="0" step="0.01" placeholder="Sin máximo" inputmode="decimal"></label>
+                    </div>
+                </div>
+            </details>
+            <button type="button" class="filter-chip point-action" id="btn-elegir-punto" aria-pressed="false">Elegir punto</button>
+            <button type="button" class="clear-btn" id="btn-limpiar-filtros">Limpiar</button>
+            <span class="results-badge" id="results-count" aria-live="polite">Cargando avisos…</span>
+        </div>
+        <div class="amenities-line" aria-label="Comodidades que se suman a la búsqueda">
+            <span class="filter-group-title">Comodidades</span>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Cochera" aria-pressed="false">Cochera</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Patio" aria-pressed="false">Patio</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Jardín" aria-pressed="false">Jardín</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Pileta" aria-pressed="false">Pileta</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Parrilla" aria-pressed="false">Parrilla</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Quincho" aria-pressed="false">Quincho</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Balcón" aria-pressed="false">Balcón</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Terraza" aria-pressed="false">Terraza</button>
+        </div>
+        <div class="point-details" id="punto-detalles" hidden>
+            <span id="punto-ayuda" aria-live="polite"></span>
+            <button type="button" id="btn-usar-centro" class="text-btn" hidden>Usar centro del mapa</button>
+            <label for="distancia">Distancia
+                <select id="distancia">
+                    <option value="500">500 m</option>
+                    <option value="1000" selected>1 km</option>
+                    <option value="2000">2 km</option>
+                </select>
+            </label>
+            <label class="approx-option"><input id="incluir-aproximadas" type="checkbox">Incluir ubicaciones aproximadas o desconocidas</label>
+            <button type="button" id="btn-quitar-punto" class="text-btn" hidden>Quitar punto</button>
+        </div>
+    </section>
 
-    <!-- Script de Integración de Mapa y Elasticsearch -->
-    <script src="{% static 'propiedades/mapa.js' %}"></script>
+    <div class="loading-toast" id="loading-toast" role="status" hidden>
+        <span class="spinner" aria-hidden="true"></span><span id="loading-text">Buscando propiedades…</span>
+    </div>
+
+    <article class="property-card-overlay" id="property-card" hidden aria-live="polite">
+        <div class="card-media">
+            <img id="card-image" alt="Foto de la propiedad" loading="lazy" decoding="async">
+            <div class="card-media-placeholder" id="card-image-placeholder" hidden>Foto no disponible</div>
+            <button type="button" class="carousel-nav-btn prev" id="carousel-btn-prev" aria-label="Foto anterior" hidden>❮</button>
+            <button type="button" class="carousel-nav-btn next" id="carousel-btn-next" aria-label="Foto siguiente" hidden>❯</button>
+            <span class="carousel-badge" id="card-carousel-counter" hidden></span>
+            <button type="button" class="card-close-btn" id="card-close-btn" aria-label="Cerrar tarjeta">✕</button>
+        </div>
+        <div class="card-content">
+            <div class="card-header-row"><span class="card-price" id="card-price"></span><span class="card-operation-tag" id="card-operation-tag"></span></div>
+            <h2 class="card-title" id="card-title"></h2>
+            <p class="card-location" id="card-location"></p>
+            <p class="card-location precision-label" id="card-location-precision"></p>
+            <div class="card-specs-row" id="card-specs"></div>
+            <div class="card-features-row" id="card-features"></div>
+            <a id="card-cta-btn" class="card-cta-btn" href="#" target="_blank" rel="noopener noreferrer">Ver aviso original ↗</a>
+            <span class="card-agency-source" id="card-agency-source"></span>
+            <a class="location-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">Ubicaciones: fuentes originales / OpenStreetMap</a>
+        </div>
+    </article>
+    <noscript><p class="search-error">Activá JavaScript para usar el mapa y sus filtros.</p></noscript>
+</div>
+{{ map_config|json_script:"map-config" }}
+<script type="module">
+    import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
+    window.maplibregl = maplibregl;
+    await import("{% static 'propiedades/mapa.js' %}");
+</script>
 </body>
 </html>

@@ -1,5 +1,7 @@
 # Grupo7_TAP_SaraSarraWilliner
 
+Actualización local del 13 de octubre: MapLibre ya está activo. Con `MAPTILER_API_KEY` el mapa utiliza Streets v4 de MapTiler y sus edificios 3D; sin clave conserva OpenFreeMap. La clave local respondió HTTP 200; la revisión visual y publicación quedan pendientes. Ver [configuración local y Render](docs/mapa.md). Se conservan búsqueda, tipos, íconos/precios, agrupación, punto con máximo 2 km y backend PostgreSQL/PostGIS/Elasticsearch. Recuperar los colores/tipografía/emojis anteriores, reducir el buscador y expandir avisos compartidos en círculo es la siguiente etapa autorizada, todavía sin implementar.
+
 **Actualización del 12 de octubre:** mapa y API con fotos públicos comprobados. El usuario compartió logs del workflow de enriquecimiento con **ocho coordenadas Gaggiotti mejoradas**, usando el esquema `0013`; queda comprobar el resultado posterior en API/mapa. Ver [guía paso a paso del workflow y resultados](docs/geocodificacion.md#ejecutar-desde-github-actions-paso-a-paso). Las notas anteriores de preparación conservan su contexto histórico.
 
 Fotos agregadas localmente el 12 de octubre: URLs ordenadas para las tres fuentes, portada, API y muestra mínima en HTML. **Requiere migración `0012` y luego ingesta para cargar fotos**; todavía no está publicado. No agrega servicios, Secrets ni almacenamiento de archivos. Ver [fotos y publicación](docs/fotos.md).
@@ -32,7 +34,7 @@ El backend implementa scrapers, normalización, persistencia, ingesta, indexaci�
 | Elasticsearch / Elastic Cloud | Índice de texto completo y ranking por relevancia alojado en Elastic Cloud; reconstruible desde PostgreSQL. |
 | Render | Django desplegado en el plan Free y conectado a Supabase y Elastic Cloud. |
 | GitHub Actions | Ingesta y reconstrucción del índice los lunes a las 00:00 de Argentina, con ejecución manual disponible. |
-| Frontend | Django Templates, JavaScript y Leaflet en `/propiedades/mapa/`, consumiendo la API de Django. |
+| Frontend | Django Templates, JavaScript y MapLibre GL JS en `/propiedades/mapa/`, consumiendo la API de Django. MapTiler opcional por clave; OpenFreeMap sin clave. |
 
 PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0011` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
 
