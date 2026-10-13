@@ -68,6 +68,7 @@ function entorno() {
     const contexto = {
         document: { readyState: 'loading', addEventListener() {}, getElementById: porId,
             createElement: tag => new Elemento(tag),
+            querySelector() { return null; },
             querySelectorAll(selector) { return selector === '[data-filter-tipo]' ? tipos : selector === '[data-filter-caracteristica]' ? comodidades : []; } },
         window: { location: { origin: 'http://localhost' } }, URL, URLSearchParams, AbortController,
         setTimeout, clearTimeout, console,
@@ -78,11 +79,11 @@ function entorno() {
     };
     contexto.window.maplibregl = {
         Map: function(opciones) { mapa.opciones = opciones; return mapa; }, NavigationControl: function() {},
-        Marker: function(o) { return marcador([], o); }, Popup: popup,
+        Marker: function(o) { return marcador([], o); }, Popup: function() { return popup(); },
         LngLatBounds: function() { this.extend = () => this; },
     };
     let codigo = fs.readFileSync('propiedades/static/propiedades/mapa.js', 'utf8');
-    codigo = codigo.replace(/\}\)\(\);\s*$/, 'globalThis.prueba = { state, MapManager, CardManager, PropertyApiClient, UI, crearParametros, agruparMarcadores, formatearPrecio, iconoTipo }; })();');
+    codigo = codigo.replace(/\}\)\(\);\s*$/, 'globalThis.prueba = { state, MapManager, CardManager, PropertyApiClient, UI, crearParametros, agruparMarcadores, posicionesCirculares, formatearPrecio, iconoTipo }; })();');
     vm.runInNewContext(codigo, contexto);
     return { ...contexto.prueba, contexto, elementos, marcadores, tipos, comodidades, mapa, porId };
 }
@@ -95,6 +96,7 @@ const respuesta = data => ({ ok: true, status: 200, json: async () => data });
 
 async function main() {
     const e = entorno();
+    e.mapa.zoom = 22; // Solo se usa una lista para puntos distintos al agotar el zoom.
     const avisos = [{ ...base, id: 1 }, { ...base, id: 2, direccion: '<img src=x onerror=alert(1)>' },
         { ...base, id: 3, latitud: -31.250001 }, { ...base, id: 4, latitud: -31.26 }];
     const original = JSON.stringify(avisos);
@@ -118,10 +120,11 @@ async function main() {
 
     const iconos = ['Casa','Chacra','Cochera','Consultorio','Departamento','Depósito','Galpón','Local','Nave Industrial','Oficina','PH','Quinta','Terreno','Campo'].map(e.iconoTipo);
     assert.equal(new Set(iconos).size, 14, 'Los tipos tienen dibujos diferentes');
-    assert.ok(e.MapManager.marcadores[1].opciones.icon.html.includes('<svg'));
+    assert.ok(e.MapManager.marcadores[1].opciones.icon.html.includes('🏠'));
     assert.ok(e.MapManager.marcadores[1].opciones.icon.html.includes('$ 500 k'));
 
     e.UI.init();
+    assert.ok(e.tipos[2].textContent.startsWith('🏗️'));
     e.PropertyApiClient.buscarPropiedades = () => { e.llamadas = (e.llamadas || 0) + 1; };
     e.tipos[2].eventos.click();
     e.comodidades[0].eventos.click(); e.comodidades[1].eventos.click();
@@ -199,6 +202,56 @@ async function main() {
     gl.MapManager.renderizarMarcadores(gl.state.propiedades);
     assert.deepEqual(Array.from(gl.MapManager.marcadores[0].coordenadas), [-61.49, -31.25], 'MapLibre recibe longitud antes de latitud');
     assert.ok(gl.MapManager.marcadores[0].getElement().textContent.includes('$ 500 k'));
+
+    const circular = entorno();
+    circular.porId('map').dataset.engine = 'maplibre';
+    circular.MapManager.init();
+    const compartidos = [{ ...base, id: 30 }, { ...base, id: 31, direccion: '<img src=x onerror=alert(1)>' }];
+    const originales = JSON.stringify(compartidos);
+    circular.state.propiedades = compartidos;
+    circular.MapManager.renderizarMarcadores(compartidos);
+    circular.MapManager.abrirGrupo(compartidos);
+    const circulo = circular.MapManager.popup.contenido.children[2].children[0];
+    const globitos = circulo.children.filter(h => h.type === 'button');
+    assert.equal(globitos.length, 2, 'Cada aviso del punto tiene su globito');
+    assert.ok(globitos.every(b => b.textContent.includes('$ 500 k')));
+    assert.ok(globitos[1].getAttribute('aria-label').includes('<img'));
+    assert.equal(globitos[1].innerHTML, '', 'Los datos del aviso no se interpretan como HTML');
+    assert.notEqual(globitos[0].style.top, globitos[1].style.top);
+    assert.deepEqual(Array.from(circular.MapManager.popup.punto), [-61.49, -31.25]);
+    globitos[1].eventos.click({ stopPropagation() {} });
+    assert.equal(circular.state.propiedadSeleccionada.id, 31);
+    assert.deepEqual(Array.from(circular.mapa.centro), [-61.49, -31.25]);
+    assert.equal(circular.MapManager.popup, null);
+    assert.equal(JSON.stringify(compartidos), originales, 'El círculo no desplaza coordenadas');
+
+    [2, 5, 8, 18].forEach(cantidad => [112, 92].forEach(ancho => {
+        const posiciones = circular.posicionesCirculares(cantidad, ancho).posiciones;
+        assert.equal(posiciones.length, cantidad);
+        posiciones.forEach((p, i) => posiciones.slice(i + 1).forEach(q => {
+            assert.ok(Math.abs(p.x - q.x) >= ancho || Math.abs(p.y - q.y) >= 38,
+                'Los globitos del círculo no se superponen');
+        }));
+    }));
+    circular.MapManager.abrirGrupo(compartidos);
+    circular.mapa.eventos.movestart();
+    assert.equal(circular.MapManager.popup, null, 'Mover la cámara cierra el círculo');
+
+    const zoom = entorno();
+    zoom.porId('map').dataset.engine = 'maplibre';
+    zoom.MapManager.init();
+    zoom.mapa.zoom = 15;
+    zoom.mapa.project = p => ({ x: p[0] * 100000 * 2 ** (zoom.mapa.zoom - 15), y: p[1] * 100000 * 2 ** (zoom.mapa.zoom - 15) });
+    const distintos = [{ ...base, id: 40 }, { ...base, id: 41, longitud: -61.4895 }];
+    zoom.state.propiedades = distintos;
+    zoom.MapManager.renderizarMarcadores(distintos);
+    assert.equal(zoom.MapManager.marcadores.length, 1);
+    zoom.MapManager.abrirGrupo(distintos);
+    assert.ok(zoom.mapa.bounds, 'Puntos distintos acercan la cámara');
+    assert.equal(zoom.MapManager.popup, null, 'No abre círculo para puntos distintos');
+    zoom.mapa.zoom = 19;
+    zoom.mapa.eventos.moveend();
+    assert.equal(zoom.MapManager.marcadores.length, 2, 'Se separan al aumentar el zoom');
 
     const mt = entorno();
     mt.porId('map').dataset.engine = 'maplibre';

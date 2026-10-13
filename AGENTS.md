@@ -57,6 +57,16 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Diseño original recuperado y selección circular — 13 de octubre de 2026
+
+El usuario confirmó que MapTiler funciona bien y autorizó la siguiente etapa de interfaz. Se recuperaron blanco translúcido, azul, Plus Jakarta Sans y emojis del diseño anterior, manteniendo MapLibre/MapTiler y los filtros inferiores. El panel superior ahora se centra con ancho ajustado al contenido, separación compacta y buscador limitado a 290 px; en pantallas pequeñas distribuye los controles en dos filas. El menú conserva los 14 tipos dinámicos, Equipamiento sigue retirado y no cambia el contrato de búsqueda.
+
+Los grupos de puntos distintos acercan la cámara hasta separarse por su proyección visual; se quitó el corte anterior en zoom 18. Al límite del motor, la lista permite elegir puntos demasiado próximos. Los avisos con un par de coordenadas idéntico abren un selector de globitos con emoji y precio en círculo. Su distribución es exclusivamente en píxeles dentro del selector: no se escriben, promedian, redondean ni sustituyen coordenadas. Compartir un punto no acredita compartir edificio ni precisión exacta. Cada globito abre su ficha original con fotos, precio y aviso de precisión.
+
+El círculo se ajusta al espacio entre cabecera y filtros, con globitos compactos en celular; si no cabe completo, admite desplazamiento y lo indica. Mover la cámara, cambiar filtros o Escape cierra el selector. Validación Node cubre separación con zoom, apertura/selección/cierre, conservación de coordenadas, texto seguro y círculos sin solapamiento con 2/5/8/18 avisos y dos tamaños de botón. Pasaron 24 pruebas Django de consultas/plantilla, sintaxis y estáticos.
+
+Revisión real en el navegador local: panel compacto en escritorio y celular, catálogo de 14 tipos con emojis, grupo real de cinco avisos con sus cinco globitos visibles en ambas dimensiones, selección de Departamento/Gaggiotti con ficha/fotos/precisión, y separación progresiva de un grupo cercano al acercar. Se restableció el tamaño habitual del navegador después de probar 1280×800 y 390×844. No hubo migraciones, scraping, cambios de datos productivos, commit, push ni despliegue. La publicación sigue a cargo del usuario. El apartado inferior de MapTiler conserva el estado anterior a esta autorización.
+
 ### MapTiler y siguiente etapa de interfaz — 13 de octubre de 2026
 
 El usuario activó MapLibre 6.14.0 en la plantilla y después autorizó probar MapTiler para mejorar cobertura de construcciones. Se agregó `MAPTILER_API_KEY` opcional desde `.env`/Environment de Render, transmitida por `json_script` al navegador. Es una clave cartográfica pública, restringida por Allowed HTTP origins en MapTiler; no es la SECRET_KEY de Django ni una credencial del backend. Usar claves separadas para localhost/127.0.0.1 y el dominio productivo; no versionar sus valores. Ver [guía local y Render](docs/mapa.md).
@@ -65,7 +75,7 @@ El controlador elige Streets v4 si hay clave y Bright/OpenFreeMap si no la hay. 
 
 La clave local guardada por el usuario respondió HTTP 200 a Streets v4; se verificaron Building, Building 3D visible desde zoom 15 y Building number del origen maptiler_planet_v4. Validación: 211 pruebas de propiedades, 209 aprobadas y dos PostGIS omitidas con SQLite; pruebas Node de ambos proveedores/edificios sin duplicación y check/estáticos/sintaxis correctos. No afirmar cobertura completa de Rafaela ni inspección visual real. Sin migraciones, paquetes, ingesta, reconstrucción de Elasticsearch o cambios de datos productivos; commit/push/despliegue siguen a cargo del usuario.
 
-Decisiones confirmadas para la siguiente etapa: recuperar colores, tipografía y emojis del diseño anterior; buscador arriba de menor ancho; separar grupos al acercar cuando sus puntos difieren; para puntos compartidos, expandir visualmente los n avisos en círculo al pulsar el grupo. La expansión deberá conservar los puntos reales y diferenciarse de una corrección geográfica. El usuario pidió primero MapTiler y después estos cambios de interfaz: todavía no implementarlos en esta etapa. Equipamiento sigue retirado según su decisión anterior. Las notas inferiores conservan sus estados históricos.
+En esta etapa se acordó recuperar colores, tipografía y emojis del diseño anterior, reducir el buscador y expandir visualmente en círculo los avisos compartidos. El usuario pidió primero MapTiler y después la interfaz; posteriormente confirmó MapTiler y autorizó esos cambios. Ver el estado actualizado en el apartado anterior. Equipamiento sigue retirado según su decisión anterior. Las notas inferiores conservan sus estados históricos.
 
 ### Mejoras de interfaz y búsqueda por punto — 12 de octubre de 2026
 

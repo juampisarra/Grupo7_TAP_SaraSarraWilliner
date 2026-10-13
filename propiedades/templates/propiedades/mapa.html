@@ -17,8 +17,8 @@
 
     <header class="floating-header">
         <a href="{% url 'propiedades:mapa' %}" class="brand">
-            <span class="brand-icon" aria-hidden="true">OI<span>.</span></span>
-            <span><strong class="brand-title">Observatorio Inmobiliario</strong><span class="brand-subtitle">Explorá Rafaela y su zona</span></span>
+            <span class="brand-icon" aria-hidden="true">🗺️</span>
+            <span><strong class="brand-title">Observatorio Inmobiliario</strong><span class="brand-subtitle">Rafaela, Santa Fe</span></span>
         </a>
         <nav class="segmented-control" aria-label="Operación">
             <button type="button" id="btn-op-alquiler" class="active" aria-pressed="true">Alquilar</button>
@@ -26,8 +26,8 @@
         </nav>
         <form id="form-busqueda" class="search-form" role="search">
             <label for="busqueda" class="sr-only">Buscar en los avisos</label>
-            <input id="busqueda" name="q" type="search" maxlength="300" placeholder="¿Qué estás buscando? Cochera, quincho…">
-            <button type="submit">Buscar</button>
+            <input id="busqueda" name="q" type="search" maxlength="300" placeholder="Cochera, patio, quincho…">
+            <button type="submit">🔎 Buscar</button>
         </form>
     </header>
 
@@ -61,7 +61,7 @@
                 </div>
             </details>
             <details id="mas-filtros" class="filter-menu">
-                <summary>Precio y dormitorios <span aria-hidden="true">⌃</span></summary>
+                <summary>💰 Precio y dormitorios <span aria-hidden="true">⌃</span></summary>
                 <div class="filter-popover structural-filters">
                     <label for="dormitorios">Dormitorios</label>
                     <select id="dormitorios">
@@ -80,20 +80,20 @@
                     </div>
                 </div>
             </details>
-            <button type="button" class="filter-chip point-action" id="btn-elegir-punto" aria-pressed="false">Elegir punto</button>
-            <button type="button" class="clear-btn" id="btn-limpiar-filtros">Limpiar</button>
+            <button type="button" class="filter-chip point-action" id="btn-elegir-punto" aria-pressed="false">📍 Elegir punto</button>
+            <button type="button" class="clear-btn" id="btn-limpiar-filtros">✕ Limpiar</button>
             <span class="results-badge" id="results-count" aria-live="polite">Cargando avisos…</span>
         </div>
         <div class="amenities-line" aria-label="Comodidades que se suman a la búsqueda">
             <span class="filter-group-title">Comodidades</span>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Cochera" aria-pressed="false">Cochera</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Patio" aria-pressed="false">Patio</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Jardín" aria-pressed="false">Jardín</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Pileta" aria-pressed="false">Pileta</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Parrilla" aria-pressed="false">Parrilla</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Quincho" aria-pressed="false">Quincho</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Balcón" aria-pressed="false">Balcón</button>
-            <button type="button" class="filter-chip" data-filter-caracteristica="Terraza" aria-pressed="false">Terraza</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Cochera" aria-pressed="false">🚗 Cochera</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Patio" aria-pressed="false">🌿 Patio</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Jardín" aria-pressed="false">🌳 Jardín</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Pileta" aria-pressed="false">🏊 Pileta</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Parrilla" aria-pressed="false">🔥 Parrilla</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Quincho" aria-pressed="false">🍖 Quincho</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Balcón" aria-pressed="false">🏢 Balcón</button>
+            <button type="button" class="filter-chip" data-filter-caracteristica="Terraza" aria-pressed="false">☀️ Terraza</button>
         </div>
         <div class="point-details" id="punto-detalles" hidden>
             <span id="punto-ayuda" aria-live="polite"></span>

@@ -20,26 +20,13 @@
     const ESTILO_OPENFREEMAP = 'https://tiles.openfreemap.org/styles/bright';
     const normalizar = (texto) => String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
-    // Dibujos propios, independientes del proveedor del mapa.
-    const dibujos = {
-        casa: '<path d="M3 11 12 3l9 8M5 10v11h14V10M9 21v-7h6v7"/>',
-        departamento: '<path d="M5 21V3h14v18M9 7h1m4 0h1M9 11h1m4 0h1M9 15h1m4 0h1M10 21v-3h4v3"/>',
-        ph: '<path d="M2 12 7 7l5 5 5-5 5 5M4 11v10h16V11M8 21v-6m8 6v-6"/>',
-        terreno: '<path d="m3 17 9-5 9 5-9 5-9-5ZM12 12V3m0 1h7l-3 3h-4"/>',
-        campo: '<path d="M2 20h20M4 16l4-3 4 3 4-3 4 3M12 10V3m0 3-4-3m4 5 4-3"/>',
-        chacra: '<path d="m2 13 6-5 6 5M4 12v8h8v-8m5 8v-7m0 2c-7-2-3-9 0-9s7 7 0 9Z"/>',
-        quinta: '<path d="m2 12 5-4 5 4M3 11v9h8v-9m7 9V9m0 4c-7 0-6-9 0-9s7 9 0 9Z"/>',
-        cochera: '<path d="M5 21V3h14v18M10 15V8h3a3 3 0 0 1 0 6h-3"/>',
-        consultorio: '<path d="M4 21V3h16v18M9 8h6m-3-3v6M9 21v-6h6v6"/>',
-        oficina: '<path d="M4 21V4h16v17M8 8h2m4 0h2M8 12h2m4 0h2M10 21v-5h4v5"/>',
-        local: '<path d="m3 9 2-5h14l2 5M3 9v3h18V9M5 12v9h14v-9M9 21v-6h6v6"/>',
-        deposito: '<path d="m3 9 9-6 9 6v12H3V9ZM8 21V11h8v10M8 15h8m-8 3h8"/>',
-        galpon: '<path d="m3 10 9-7 9 7v11H3V10ZM7 21V11h10v10M7 14h10m-10 4h10"/>',
-        'nave industrial': '<path d="M3 21V10l6 4v-4l6 4V3h4l2 18H3ZM7 18h1m4 0h1m4 0h1"/>',
+    const iconosTipo = {
+        casa: '🏠', departamento: '🏢', ph: '🏘️', terreno: '📐', campo: '🌾',
+        chacra: '🚜', quinta: '🌳', cochera: '🚗', consultorio: '🩺', oficina: '💼',
+        local: '🏪', deposito: '📦', galpon: '🏭', 'nave industrial': '🏗️',
     };
     function iconoTipo(tipo) {
-        const trazos = dibujos[normalizar(tipo)] || '<path d="M12 22s8-7 8-13a8 8 0 0 0-16 0c0 6 8 13 8 13Z"/><circle cx="12" cy="9" r="2"/>';
-        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + trazos + '</svg>';
+        return iconosTipo[normalizar(tipo)] || '📍';
     }
     function datosPrecio(propiedad, operacion) {
         const dato = propiedad[operacion];
@@ -158,6 +145,18 @@
         return grupos.map((grupo) => grupo.avisos);
     }
 
+    // Distribución de botones en píxeles dentro de un selector, no coordenadas.
+    function posicionesCirculares(cantidad, ancho = 112) {
+        const separacion = Math.hypot(ancho + 12, 38 + 12);
+        const radio = Math.max(76, Math.ceil(separacion / (2 * Math.sin(Math.PI / cantidad))));
+        const centro = radio + ancho / 2 + 12;
+        const posiciones = Array.from({ length: cantidad }, (_, i) => {
+            const angulo = -Math.PI / 2 + i * 2 * Math.PI / cantidad;
+            return { x: centro + radio * Math.cos(angulo), y: centro + radio * Math.sin(angulo), angulo };
+        });
+        return { centro, radio, ancho, tamano: centro * 2, posiciones };
+    }
+
     class MapManager {
         static map = null;
         static esMapLibre = false;
@@ -195,11 +194,12 @@
                 this.markersLayer = L.featureGroup().addTo(this.map);
             }
             this.map.on('click', (evento) => {
-                if (evento.originalEvent?.target?.closest('.property-marker, .search-point')) return;
+                if (evento.originalEvent?.target?.closest('.property-marker, .search-point, .shared-location-popup')) return;
                 if (state.seleccionandoPunto) this.elegirPunto(this.esMapLibre ? evento.lngLat : evento.latlng);
                 else CardManager.cerrar();
             });
             this.map.on('moveend', () => this.renderizarMarcadores(state.propiedades));
+            this.map.on('movestart', () => this.cerrarPopup());
             if (!this.esMapLibre) this.map.on('zoomend', () => this.renderizarMarcadores(state.propiedades));
         }
         static agregarLogoMapTiler() {
@@ -286,6 +286,7 @@
         }
         static renderizarMarcadores(propiedades) {
             if (!this.map) return;
+            this.cerrarPopup();
             this.marcadores.forEach((marker) => marker.remove());
             this.marcadores = [];
             this.markersLayer?.clearLayers();
@@ -297,12 +298,16 @@
                 if (grupo.some((dato) => dato.id === state.propiedadSeleccionada?.id)) elemento.classList.add('active');
                 const dibujo = document.createElement('span');
                 dibujo.className = 'marker-icon';
-                dibujo.innerHTML = grupo.length > 1 ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>' : iconoTipo(p.tipo);
+                dibujo.textContent = grupo.length > 1 ? '🏘️' : iconoTipo(p.tipo);
+                dibujo.setAttribute('aria-hidden', 'true');
                 const texto = document.createElement('span');
                 texto.className = 'marker-text';
                 texto.textContent = grupo.length > 1 ? grupo.length + ' avisos' : formatearPrecio(p, state.operacion, true);
                 elemento.append(dibujo, texto);
-                const etiqueta = grupo.length > 1 ? 'Explorar ' + grupo.length + ' avisos' : (p.tipo || 'Inmueble') + ': ' + formatearPrecio(p, state.operacion);
+                const mismoPunto = grupo.every((dato) => dato.latitud === p.latitud && dato.longitud === p.longitud);
+                const etiqueta = grupo.length > 1
+                    ? (mismoPunto ? 'Elegir entre ' + grupo.length + ' avisos en este punto' : 'Acercar para explorar ' + grupo.length + ' avisos')
+                    : (p.tipo || 'Inmueble') + ': ' + formatearPrecio(p, state.operacion);
                 const marker = this.crearMarcador({ lat: p.latitud, lng: p.longitud }, elemento,
                     () => this.abrirGrupo(grupo), etiqueta);
                 this.marcadores.push(marker);
@@ -312,15 +317,17 @@
         static abrirGrupo(grupo) {
             if (grupo.length === 1) { CardManager.mostrar(grupo[0]); this.seleccionarMarcador(grupo[0].id); return; }
             const mismoPunto = grupo.every((p) => p.latitud === grupo[0].latitud && p.longitud === grupo[0].longitud);
-            if (!mismoPunto && this.map.getZoom() < 18) {
+            if (mismoPunto) { this.abrirCirculo(grupo); return; }
+            const maxZoom = this.map.getMaxZoom?.() || 22;
+            if (this.map.getZoom() < maxZoom) {
                 const posiciones = grupo.map((p) => this.esMapLibre ? [p.longitud, p.latitud] : [p.latitud, p.longitud]);
                 const bounds = this.esMapLibre ? posiciones.reduce((b, punto) => b.extend(punto), new (MAPLIBRE().LngLatBounds)()) : L.latLngBounds(posiciones);
-                this.map.fitBounds(bounds, { padding: this.esMapLibre ? 100 : [100, 100], maxZoom: this.map.getZoom() + 2 });
+                this.map.fitBounds(bounds, { padding: this.esMapLibre ? 100 : [100, 100], maxZoom: Math.min(maxZoom, this.map.getZoom() + 2) });
                 return;
             }
             const lista = document.createElement('div');
             const descripcion = document.createElement('p');
-            descripcion.textContent = mismoPunto ? 'Comparten un punto publicado. Revisá la precisión de cada aviso.' : 'Avisos cercanos en esta vista. Seleccioná uno para ver sus datos.';
+            descripcion.textContent = 'Avisos cercanos en esta vista. Seleccioná uno para ver sus datos.';
             lista.appendChild(descripcion);
             grupo.forEach((p) => {
                 const boton = document.createElement('button');
@@ -329,11 +336,105 @@
                 boton.addEventListener('click', () => { this.cerrarPopup(); CardManager.mostrar(p); this.seleccionarMarcador(p.id); });
                 lista.appendChild(boton);
             });
+            this.mostrarPopup(grupo[0], lista);
+        }
+        static abrirCirculo(grupo) {
+            const anchoMapa = document.getElementById('map').getBoundingClientRect().width || window.innerWidth || 1280;
+            const distribucion = posicionesCirculares(grupo.length, anchoMapa < 480 ? 92 : 112);
+            const contenido = document.createElement('div');
+            const titulo = document.createElement('p');
+            titulo.className = 'shared-location-heading';
+            titulo.textContent = '🏘️ Elegí uno de los ' + grupo.length + ' avisos';
+            const ayuda = document.createElement('p');
+            ayuda.className = 'shared-location-help';
+            ayuda.textContent = 'Comparten un punto publicado. Revisá su precisión.';
+            const ventana = document.createElement('div');
+            ventana.className = 'shared-location-viewport';
+            const circulo = document.createElement('div');
+            circulo.className = 'shared-location-circle';
+            circulo.style.width = circulo.style.height = distribucion.tamano + 'px';
+            circulo.setAttribute('role', 'group');
+            circulo.setAttribute('aria-label', grupo.length + ' avisos en el mismo punto');
+            grupo.forEach((p, i) => {
+                const posicion = distribucion.posiciones[i];
+                const linea = document.createElement('span');
+                linea.className = 'shared-location-leg';
+                linea.setAttribute('aria-hidden', 'true');
+                linea.style.left = linea.style.top = distribucion.centro + 'px';
+                linea.style.width = distribucion.radio + 'px';
+                linea.style.transform = 'rotate(' + posicion.angulo + 'rad)';
+                const boton = document.createElement('button');
+                boton.type = 'button';
+                boton.className = 'property-marker shared-location-marker';
+                boton.style.width = distribucion.ancho + 'px';
+                boton.style.left = posicion.x + 'px';
+                boton.style.top = posicion.y + 'px';
+                boton.textContent = iconoTipo(p.tipo) + ' ' + formatearPrecio(p, state.operacion, true);
+                const descripcion = (p.tipo || 'Inmueble') + ' · ' + (p.direccion || p.titulo || 'Sin dirección')
+                    + ' · ' + formatearPrecio(p, state.operacion) + ' · ' + (p.fuente || 'Fuente no informada');
+                boton.title = descripcion;
+                boton.setAttribute('aria-label', descripcion);
+                boton.addEventListener('click', (e) => {
+                    e.stopPropagation(); this.cerrarPopup(); CardManager.mostrar(p); this.seleccionarMarcador(p.id);
+                });
+                circulo.append(linea, boton);
+            });
+            const centro = document.createElement('span');
+            centro.className = 'shared-location-center';
+            centro.style.left = centro.style.top = distribucion.centro + 'px';
+            centro.textContent = '📍 ' + grupo.length + ' avisos';
+            circulo.append(centro);
+            ventana.append(circulo);
+            contenido.append(titulo, ayuda, ventana);
+            this.mostrarPopup(grupo[0], contenido, true);
+        }
+        static mostrarPopup(p, contenido, circular = false) {
             this.cerrarPopup();
+            const opciones = { maxWidth: circular ? '640px' : '320px', className: circular ? 'shared-location-popup' : '' };
+            if (circular) Object.assign(opciones, this.ajustarCirculo(p, contenido));
             if (this.esMapLibre) {
-                this.popup = new (MAPLIBRE().Popup)({ maxWidth: '320px' })
-                    .setLngLat([grupo[0].longitud, grupo[0].latitud]).setDOMContent(lista).addTo(this.map);
-            } else this.popup = L.popup({ maxHeight: 260, maxWidth: 320 }).setLatLng([grupo[0].latitud, grupo[0].longitud]).setContent(lista).openOn(this.map);
+                this.popup = new (MAPLIBRE().Popup)(opciones)
+                    .setLngLat([p.longitud, p.latitud]).setDOMContent(contenido).addTo(this.map);
+            } else this.popup = L.popup({ maxHeight: circular ? 440 : 260, maxWidth: circular ? 640 : 320, className: circular ? 'shared-location-popup' : '' })
+                .setLatLng([p.latitud, p.longitud]).setContent(contenido).openOn(this.map);
+        }
+        static ajustarCirculo(p, contenido) {
+            const mapa = document.getElementById('map').getBoundingClientRect();
+            const cabecera = document.querySelector('.floating-header')?.getBoundingClientRect();
+            const filtros = document.getElementById('filter-dock').getBoundingClientRect();
+            const anchoMapa = mapa.width || window.innerWidth || 1280;
+            const arriba = (cabecera?.bottom || 100) - (mapa.top || 0) + 12;
+            const abajo = (filtros.top || (window.innerHeight || 800) - 150) - (mapa.top || 0) - 16;
+            const punto = this.proyectar(p);
+            const ventana = contenido.children[2];
+            const tamano = parseFloat(ventana.children[0].style.width);
+            const ancho = Math.min(tamano, 580, anchoMapa - 64);
+            ventana.style.width = ancho + 'px';
+            const anchoPopup = ancho + 32;
+            const alturaDeseada = Math.min(tamano, 420) + 100;
+            const espacioCentrado = 2 * Math.min(punto.y - arriba, abajo - punto.y) - 20;
+            let anchor, espacio, flotante = false, offset = [0, 0];
+            if (espacioCentrado >= Math.min(alturaDeseada, 340) && punto.x > anchoPopup + 16) {
+                anchor = 'right'; espacio = espacioCentrado;
+            } else if (espacioCentrado >= Math.min(alturaDeseada, 340) && anchoMapa - punto.x > anchoPopup + 16) {
+                anchor = 'left'; espacio = espacioCentrado;
+            } else if (espacioCentrado >= alturaDeseada) {
+                // Centrar el selector en una pantalla angosta, sin mover el punto.
+                anchor = 'right'; espacio = espacioCentrado; flotante = true;
+                const centroX = Math.max(anchoPopup / 2 + 12, Math.min(punto.x, anchoMapa - anchoPopup / 2 - 12));
+                offset = [centroX + anchoPopup / 2 - punto.x, 0];
+            } else {
+                const espacioArriba = punto.y - arriba - 16;
+                const espacioAbajo = abajo - punto.y - 16;
+                anchor = espacioArriba > espacioAbajo ? 'bottom' : 'top';
+                espacio = Math.max(espacioArriba, espacioAbajo);
+                const centroX = Math.max(anchoPopup / 2 + 12, Math.min(punto.x, anchoMapa - anchoPopup / 2 - 12));
+                offset = [centroX - punto.x, 0];
+            }
+            const alto = Math.max(90, Math.min(420, espacio - 100));
+            ventana.style.maxHeight = alto + 'px';
+            if (tamano > ancho || tamano > alto) contenido.children[1].textContent += ' Deslizá para ver todos los globitos.';
+            return { anchor, offset, className: 'shared-location-popup' + (flotante ? ' shared-location-floating' : '') };
         }
         static cerrarPopup() { this.popup?.remove(); this.popup = null; }
         static seleccionarMarcador(id) {
@@ -383,7 +484,7 @@
                 : p.ubicacion_aproximada === true ? 'Ubicación aproximada: el pin representa el centro del área publicada.'
                 : 'Precisión de ubicación desconocida: el pin puede ser una referencia de zona.';
             const specs = document.getElementById('card-specs'); specs.replaceChildren();
-            [['dormitorios', 'dorm.'], ['ambientes', 'amb.'], ['banos', 'baños']].forEach(([campo, nombre]) => {
+            [['dormitorios', '🛏️ dorm.'], ['ambientes', '📐 amb.'], ['banos', '🚿 baños']].forEach(([campo, nombre]) => {
                 if (p[campo] === null || p[campo] === undefined) return;
                 const etiqueta = document.createElement('span'); etiqueta.className = 'spec-item';
                 etiqueta.textContent = p[campo] + ' ' + nombre; specs.appendChild(etiqueta);
@@ -433,9 +534,10 @@
                 ['alquiler', 'venta'].forEach((op) => this.activar(document.getElementById('btn-op-' + op), op === operacion));
                 this.buscar();
             }));
-            document.querySelectorAll('[data-filter-tipo]').forEach((btn) => btn.addEventListener('click', () => {
-                this.seleccionarTipo(state.tipo === btn.dataset.filterTipo ? null : btn.dataset.filterTipo);
-            }));
+            document.querySelectorAll('[data-filter-tipo]').forEach((btn) => {
+                btn.textContent = iconoTipo(btn.dataset.filterTipo) + ' ' + btn.dataset.filterTipo;
+                btn.addEventListener('click', () => this.seleccionarTipo(state.tipo === btn.dataset.filterTipo ? null : btn.dataset.filterTipo));
+            });
             document.getElementById('btn-todos-tipos').addEventListener('click', () => this.seleccionarTipo(null));
             document.querySelectorAll('[data-filter-caracteristica]').forEach((btn) => btn.addEventListener('click', () => {
                 const valor = btn.dataset.filterCaracteristica;
@@ -486,7 +588,7 @@
             state.tipo = tipo;
             document.querySelectorAll('[data-filter-tipo]').forEach((btn) => this.activar(btn, btn.dataset.filterTipo === tipo));
             this.activar(document.getElementById('btn-todos-tipos'), tipo === null);
-            document.getElementById('tipo-seleccionado').textContent = tipo || 'Todos los tipos';
+            document.getElementById('tipo-seleccionado').textContent = tipo ? iconoTipo(tipo) + ' ' + tipo : 'Todos los tipos';
             document.getElementById('tipos-menu').open = false;
             this.buscar();
         }
@@ -511,7 +613,7 @@
         static actualizarPunto() {
             const btn = document.getElementById('btn-elegir-punto');
             this.activar(btn, state.seleccionandoPunto);
-            btn.textContent = state.seleccionandoPunto ? 'Cancelar selección' : state.punto ? 'Cambiar punto' : 'Elegir punto';
+            btn.textContent = state.seleccionandoPunto ? '✕ Cancelar selección' : state.punto ? '📍 Cambiar punto' : '📍 Elegir punto';
             document.getElementById('map').classList.toggle('eligiendo-punto', state.seleccionandoPunto);
             document.getElementById('punto-detalles').hidden = !(state.punto || state.seleccionandoPunto);
             document.getElementById('btn-quitar-punto').hidden = !state.punto;
