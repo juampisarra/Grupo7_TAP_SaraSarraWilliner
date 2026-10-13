@@ -104,18 +104,15 @@ select { border: 1px solid var(--line); border-radius: 10px; padding: 6px 9px; b
 .maplibregl-ctrl-bottom-left { bottom: calc(var(--dock-height) + 38px); }
 .maptiler-logo img { display: block; width: 110px; height: auto; }
 .leaflet-popup-content, .maplibregl-popup-content { color: var(--ink); font-family: var(--font-modern); font-size: 12px; }
-.shared-location-option { display: block; width: 100%; text-align: left; margin: 7px 0; padding: 9px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); cursor: pointer; font-size: 12px; }
 .maplibregl-popup-content { max-height: 310px; overflow-y: auto; border-radius: 18px; padding: 15px; }
-.shared-location-popup { max-width: calc(100vw - 30px) !important; }
-.shared-location-floating .maplibregl-popup-tip { display: none; }
-.shared-location-popup .maplibregl-popup-content { max-height: none; overflow: visible; background: var(--paper); box-shadow: var(--shadow); padding: 16px; }
-.shared-location-heading { margin: 0 20px 6px 0; font-size: 13px; font-weight: 800; }
-.shared-location-help { margin: 0 0 10px; font-size: 11px; color: var(--muted); }
-.shared-location-viewport { max-width: min(580px, calc(100vw - 64px)); max-height: min(340px, calc(100dvh - var(--dock-height) - 180px)); overflow: auto; overscroll-behavior: contain; }
-.shared-location-circle { position: relative; }
-.shared-location-center { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 68px; height: 68px; border: 2px solid #bfdbfe; border-radius: 50%; background: var(--blue-soft); color: var(--primary); font-size: 11px; font-weight: 800; text-align: center; }
-.shared-location-leg { position: absolute; height: 2px; background: #bfdbfe; transform-origin: left center; pointer-events: none; }
-.shared-location-marker { position: absolute; transform: translate(-50%, -50%); z-index: 1; min-height: 38px; }
+.shared-location-stack-popup { z-index: 10; }
+.shared-location-stack-popup .maplibregl-popup-tip, .shared-location-stack-popup .leaflet-popup-tip-container { display: none; }
+.shared-location-stack-popup .maplibregl-popup-content, .shared-location-stack-popup .leaflet-popup-content-wrapper { background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 0; max-height: none; overflow: visible; }
+.shared-location-stack-popup .leaflet-popup-content { margin: 0; }
+.shared-location-stack { position: relative; width: 128px; }
+.shared-location-viewport { display: grid; gap: 8px; width: 128px; padding: 4px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #93c5fd transparent; }
+.shared-location-marker { position: relative; min-height: 38px; }
+.shared-location-close { position: absolute; top: -19px; right: 4px; z-index: 2; width: 22px; height: 22px; border: 1px solid #bfdbfe; border-radius: 50%; background: white; color: var(--primary); font-size: 17px; line-height: 1; padding: 0; box-shadow: 0 2px 6px #0f172a1a; }
 .property-card-overlay { position: absolute; right: 22px; top: 120px; bottom: calc(var(--dock-height) + 35px); z-index: 1000; width: 340px; max-height: 680px; overflow-y: auto; border-radius: 22px; background: var(--paper); box-shadow: var(--shadow); border: 1px solid var(--line); }
 .card-media { position: relative; height: 180px; background: #e6e7df; }
 .card-media img { width: 100%; height: 100%; object-fit: cover; }
@@ -170,4 +167,3 @@ select { border: 1px solid var(--line); border-radius: 10px; padding: 6px 9px; b
     .card-price { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
-@media (max-width: 480px) { .shared-location-marker { font-size: 10px; padding: 5px; } }

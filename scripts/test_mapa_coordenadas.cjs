@@ -44,7 +44,7 @@ function entorno() {
         latLngToContainerPoint: punto => ({ x: punto[1] * 100000, y: punto[0] * 100000 }),
         project: punto => ({ x: punto[0] * 100000, y: punto[1] * 100000 }),
         panTo(p) { this.centro = p; }, easeTo(p) { this.centro = p.center; },
-        getZoom() { return this.zoom; }, fitBounds(bounds) { this.bounds = bounds; },
+        getZoom() { return this.zoom; }, fitBounds(bounds, opciones) { this.bounds = bounds; this.opcionesBounds = opciones; },
         getCenter() { return { lat: -31.25, lng: -61.49 }; },
         controles: [], addControl(control, posicion) { this.controles.push({ control, posicion }); },
         getLayer() { return false; }, addSource(id, dato) { this.source = dato; },
@@ -83,7 +83,7 @@ function entorno() {
         LngLatBounds: function() { this.extend = () => this; },
     };
     let codigo = fs.readFileSync('propiedades/static/propiedades/mapa.js', 'utf8');
-    codigo = codigo.replace(/\}\)\(\);\s*$/, 'globalThis.prueba = { state, MapManager, CardManager, PropertyApiClient, UI, crearParametros, agruparMarcadores, posicionesCirculares, formatearPrecio, iconoTipo }; })();');
+    codigo = codigo.replace(/\}\)\(\);\s*$/, 'globalThis.prueba = { state, MapManager, CardManager, PropertyApiClient, UI, crearParametros, agruparMarcadores, formatearPrecio, iconoTipo }; })();');
     vm.runInNewContext(codigo, contexto);
     return { ...contexto.prueba, contexto, elementos, marcadores, tipos, comodidades, mapa, porId };
 }
@@ -96,7 +96,7 @@ const respuesta = data => ({ ok: true, status: 200, json: async () => data });
 
 async function main() {
     const e = entorno();
-    e.mapa.zoom = 22; // Solo se usa una lista para puntos distintos al agotar el zoom.
+    e.mapa.zoom = 18; // Los grupos que todavía se solapan abren la columna sin más zoom automático.
     const avisos = [{ ...base, id: 1 }, { ...base, id: 2, direccion: '<img src=x onerror=alert(1)>' },
         { ...base, id: 3, latitud: -31.250001 }, { ...base, id: 4, latitud: -31.26 }];
     const original = JSON.stringify(avisos);
@@ -107,10 +107,11 @@ async function main() {
     assert.equal(e.MapManager.markerMap.get(1), e.MapManager.markerMap.get(3));
     assert.deepEqual(Array.from(e.MapManager.marcadores[0].coordenadas), [-31.25, -61.49], 'El ancla es un punto real');
     e.MapManager.marcadores[0].eventos.click();
-    const botones = e.MapManager.popup.contenido.children.filter(b => b.type === 'button');
+    const botones = e.MapManager.popup.contenido.children[1].children;
     assert.equal(botones.length, 3);
-    assert.ok(botones[1].textContent.includes('<img'), 'Texto del aviso no se interpreta como HTML');
-    botones[1].eventos.click();
+    assert.ok(botones[1].title.includes('<img'), 'La dirección se conserva como texto en la descripción del botón');
+    assert.equal(botones[1].innerHTML, '', 'Texto del aviso no se interpreta como HTML');
+    botones[1].eventos.click({ stopPropagation() {} });
     assert.ok(e.porId('card-location-precision').textContent.includes('desconocida'));
     e.CardManager.mostrar({ ...base, id: 5, caracteristicas: '<img src=x onerror=alert(1)>',
         ubicacion_info: { precision: 'geocodificada_direccion' } });
@@ -203,39 +204,59 @@ async function main() {
     assert.deepEqual(Array.from(gl.MapManager.marcadores[0].coordenadas), [-61.49, -31.25], 'MapLibre recibe longitud antes de latitud');
     assert.ok(gl.MapManager.marcadores[0].getElement().textContent.includes('$ 500 k'));
 
-    const circular = entorno();
-    circular.porId('map').dataset.engine = 'maplibre';
-    circular.MapManager.init();
+    const lateral = entorno();
+    lateral.porId('map').dataset.engine = 'maplibre';
+    lateral.MapManager.init();
     const compartidos = [{ ...base, id: 30 }, { ...base, id: 31, direccion: '<img src=x onerror=alert(1)>' }];
     const originales = JSON.stringify(compartidos);
-    circular.state.propiedades = compartidos;
-    circular.MapManager.renderizarMarcadores(compartidos);
-    circular.MapManager.abrirGrupo(compartidos);
-    const circulo = circular.MapManager.popup.contenido.children[2].children[0];
-    const globitos = circulo.children.filter(h => h.type === 'button');
+    lateral.state.propiedades = compartidos;
+    lateral.MapManager.renderizarMarcadores(compartidos);
+    lateral.MapManager.abrirGrupo(compartidos);
+    const globitos = lateral.MapManager.popup.contenido.children[1].children;
     assert.equal(globitos.length, 2, 'Cada aviso del punto tiene su globito');
     assert.ok(globitos.every(b => b.textContent.includes('$ 500 k')));
     assert.ok(globitos[1].getAttribute('aria-label').includes('<img'));
     assert.equal(globitos[1].innerHTML, '', 'Los datos del aviso no se interpretan como HTML');
-    assert.notEqual(globitos[0].style.top, globitos[1].style.top);
-    assert.deepEqual(Array.from(circular.MapManager.popup.punto), [-61.49, -31.25]);
+    assert.deepEqual(Array.from(lateral.MapManager.popup.punto), [-61.49, -31.25]);
     globitos[1].eventos.click({ stopPropagation() {} });
-    assert.equal(circular.state.propiedadSeleccionada.id, 31);
-    assert.deepEqual(Array.from(circular.mapa.centro), [-61.49, -31.25]);
-    assert.equal(circular.MapManager.popup, null);
-    assert.equal(JSON.stringify(compartidos), originales, 'El círculo no desplaza coordenadas');
+    assert.equal(lateral.state.propiedadSeleccionada.id, 31);
+    assert.deepEqual(Array.from(lateral.mapa.centro), [-61.49, -31.25]);
+    assert.equal(lateral.MapManager.popup, null);
+    assert.equal(JSON.stringify(compartidos), originales, 'La columna no desplaza coordenadas');
 
-    [2, 5, 8, 18].forEach(cantidad => [112, 92].forEach(ancho => {
-        const posiciones = circular.posicionesCirculares(cantidad, ancho).posiciones;
-        assert.equal(posiciones.length, cantidad);
-        posiciones.forEach((p, i) => posiciones.slice(i + 1).forEach(q => {
-            assert.ok(Math.abs(p.x - q.x) >= ancho || Math.abs(p.y - q.y) >= 38,
-                'Los globitos del círculo no se superponen');
-        }));
-    }));
-    circular.MapManager.abrirGrupo(compartidos);
-    circular.mapa.eventos.movestart();
-    assert.equal(circular.MapManager.popup, null, 'Mover la cámara cierra el círculo');
+    [2, 5, 8, 18].forEach(cantidad => {
+        lateral.MapManager.abrirColumna(Array.from({ length: cantidad }, (_, id) => ({ ...base, id })), 'prueba');
+        assert.equal(lateral.MapManager.popup.contenido.children[1].children.length, cantidad,
+            'Los grupos grandes conservan un botón por aviso');
+    });
+    lateral.mapa.eventos.movestart();
+    assert.equal(lateral.MapManager.popup, null, 'Mover la cámara cierra la columna');
+    lateral.MapManager.abrirGrupo(compartidos);
+    lateral.MapManager.abrirGrupo(compartidos);
+    assert.equal(lateral.MapManager.popup, null, 'Volver a pulsar el grupo cierra sus avisos');
+    lateral.MapManager.abrirGrupo(compartidos);
+    lateral.MapManager.popup.contenido.children[0].eventos.click({ stopPropagation() {} });
+    assert.equal(lateral.MapManager.popup, null, 'El botón de cierre funciona');
+    lateral.MapManager.abrirGrupo(compartidos);
+    lateral.mapa.eventos.click({});
+    assert.equal(lateral.MapManager.popup, null, 'Pulsar el fondo del mapa cierra la columna');
+
+    const movil = entorno();
+    movil.porId('map').getBoundingClientRect = () => ({ width: 390, top: 0 });
+    movil.porId('filter-dock').getBoundingClientRect = () => ({ top: 690 });
+    movil.contexto.document.querySelector = () => ({ getBoundingClientRect: () => ({ bottom: 140 }) });
+    movil.porId('map').dataset.engine = 'maplibre'; movil.MapManager.init();
+    movil.mapa.project = () => ({ x: 350, y: 410 });
+    movil.MapManager.abrirColumna(compartidos, 'prueba');
+    let posicion = movil.MapManager.ajustarColumna(base, movil.MapManager.popup.contenido);
+    assert.equal(posicion.anchor, 'right', 'La columna prefiere la izquierda');
+    movil.mapa.project = () => ({ x: 50, y: 410 });
+    posicion = movil.MapManager.ajustarColumna(base, movil.MapManager.popup.contenido);
+    assert.equal(posicion.anchor, 'left', 'Se abre a la derecha cerca del borde izquierdo');
+    movil.mapa.project = () => ({ x: 195, y: 180 });
+    movil.MapManager.abrirColumna(Array.from({ length: 18 }, (_, id) => ({ ...base, id })), 'prueba');
+    assert.ok(parseFloat(movil.MapManager.popup.contenido.children[1].style.maxHeight) <= 510,
+        'Los grupos grandes permiten desplazarse sin tapar cabecera/filtros');
 
     const zoom = entorno();
     zoom.porId('map').dataset.engine = 'maplibre';
@@ -248,10 +269,56 @@ async function main() {
     assert.equal(zoom.MapManager.marcadores.length, 1);
     zoom.MapManager.abrirGrupo(distintos);
     assert.ok(zoom.mapa.bounds, 'Puntos distintos acercan la cámara');
-    assert.equal(zoom.MapManager.popup, null, 'No abre círculo para puntos distintos');
+    assert.equal(zoom.MapManager.popup, null, 'Los puntos distintos acercan el mapa sin expandir una columna');
     zoom.mapa.zoom = 19;
     zoom.mapa.eventos.moveend();
     assert.equal(zoom.MapManager.marcadores.length, 2, 'Se separan al aumentar el zoom');
+
+    // Caso real de dos fuentes: misma dirección publicada con coordenadas distintas.
+    const oficinas = entorno();
+    oficinas.porId('map').dataset.engine = 'maplibre'; oficinas.MapManager.init();
+    oficinas.mapa.zoom = 15.3;
+    const bolivar = [
+        { ...base, id: 750, tipo: 'Oficina', fuente: 'Gaggiotti', direccion: 'Bolivar 137 Planta Alta',
+            latitud: -31.2497925953, longitud: -61.4925329646 },
+        { ...base, id: 442, tipo: 'Oficina', fuente: 'Avantix', direccion: 'Bolivar al 137',
+            latitud: -31.2497847077, longitud: -61.4925133504 },
+    ];
+    const datosOficinas = JSON.stringify(bolivar);
+    oficinas.state.propiedades = bolivar;
+    oficinas.MapManager.renderizarMarcadores(bolivar);
+    assert.equal(oficinas.MapManager.marcadores.length, 1);
+    assert.equal(oficinas.MapManager.marcadores[0].getElement().getAttribute('aria-label'), 'Elegir entre 2 avisos cercanos');
+    oficinas.MapManager.abrirGrupo(bolivar);
+    assert.equal(oficinas.mapa.bounds, undefined, 'Los puntos casi superpuestos abren sus avisos sin zoom automático');
+    const opcionesOficinas = oficinas.MapManager.popup.contenido.children[1].children;
+    assert.equal(opcionesOficinas.length, 2);
+    assert.ok(opcionesOficinas[1].title.includes('Avantix'));
+    assert.ok(oficinas.MapManager.popup.contenido.title.includes('cerca en esta vista'));
+    assert.ok(!oficinas.MapManager.popup.contenido.title.includes('Comparten un punto'));
+    opcionesOficinas[1].eventos.click({ stopPropagation() {} });
+    assert.equal(oficinas.state.propiedadSeleccionada.id, 442);
+    assert.deepEqual(Array.from(oficinas.mapa.centro), [bolivar[1].longitud, bolivar[1].latitud]);
+    oficinas.MapManager.abrirGrupo(bolivar);
+    oficinas.MapManager.popup.contenido.children[1].children[0].eventos.click({ stopPropagation() {} });
+    assert.equal(oficinas.state.propiedadSeleccionada.id, 750);
+    assert.deepEqual(Array.from(oficinas.mapa.centro), [bolivar[0].longitud, bolivar[0].latitud]);
+    assert.equal(JSON.stringify(bolivar), datosOficinas, 'Se mantienen ambas identidades y coordenadas originales');
+
+    const persistente = entorno();
+    persistente.porId('map').dataset.engine = 'maplibre'; persistente.MapManager.init();
+    persistente.mapa.zoom = 17;
+    persistente.state.propiedades = distintos;
+    persistente.MapManager.renderizarMarcadores(distintos);
+    persistente.MapManager.abrirGrupo(distintos);
+    assert.equal(persistente.mapa.opcionesBounds.maxZoom, 18, 'El zoom automático de grupos tiene un límite legible');
+    persistente.mapa.zoom = 18;
+    persistente.MapManager.abrirGrupo(distintos);
+    assert.equal(persistente.MapManager.popup.contenido.children[1].children.length, 2,
+        'Si continúan juntos en zoom 18 se usa la misma columna sin marco');
+    persistente.mapa.zoom = 22;
+    persistente.MapManager.abrirGrupo(distintos);
+    assert.equal(persistente.MapManager.popup, null, 'Volver a tocar también cierra grupos de puntos distintos');
 
     const mt = entorno();
     mt.porId('map').dataset.engine = 'maplibre';

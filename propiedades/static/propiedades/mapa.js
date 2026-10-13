@@ -15,6 +15,7 @@
     };
     const RAFAELA = [-31.253, -61.491];
     const RADIOS = [500, 1000, 2000];
+    const ZOOM_MAXIMO_GRUPOS = 18;
     const ORIGEN = window.location.origin;
     const MAPLIBRE = () => window.maplibregl;
     const ESTILO_OPENFREEMAP = 'https://tiles.openfreemap.org/styles/bright';
@@ -145,18 +146,6 @@
         return grupos.map((grupo) => grupo.avisos);
     }
 
-    // Distribución de botones en píxeles dentro de un selector, no coordenadas.
-    function posicionesCirculares(cantidad, ancho = 112) {
-        const separacion = Math.hypot(ancho + 12, 38 + 12);
-        const radio = Math.max(76, Math.ceil(separacion / (2 * Math.sin(Math.PI / cantidad))));
-        const centro = radio + ancho / 2 + 12;
-        const posiciones = Array.from({ length: cantidad }, (_, i) => {
-            const angulo = -Math.PI / 2 + i * 2 * Math.PI / cantidad;
-            return { x: centro + radio * Math.cos(angulo), y: centro + radio * Math.sin(angulo), angulo };
-        });
-        return { centro, radio, ancho, tamano: centro * 2, posiciones };
-    }
-
     class MapManager {
         static map = null;
         static esMapLibre = false;
@@ -165,6 +154,7 @@
         static marcadores = [];
         static puntoMarker = null;
         static popup = null;
+        static grupoExpandido = null;
         static usaMapTiler = false;
 
         static init() {
@@ -194,9 +184,9 @@
                 this.markersLayer = L.featureGroup().addTo(this.map);
             }
             this.map.on('click', (evento) => {
-                if (evento.originalEvent?.target?.closest('.property-marker, .search-point, .shared-location-popup')) return;
+                if (evento.originalEvent?.target?.closest('.property-marker, .search-point, .shared-location-stack-popup')) return;
                 if (state.seleccionandoPunto) this.elegirPunto(this.esMapLibre ? evento.lngLat : evento.latlng);
-                else CardManager.cerrar();
+                else { this.cerrarPopup(); CardManager.cerrar(); }
             });
             this.map.on('moveend', () => this.renderizarMarcadores(state.propiedades));
             this.map.on('movestart', () => this.cerrarPopup());
@@ -306,7 +296,9 @@
                 elemento.append(dibujo, texto);
                 const mismoPunto = grupo.every((dato) => dato.latitud === p.latitud && dato.longitud === p.longitud);
                 const etiqueta = grupo.length > 1
-                    ? (mismoPunto ? 'Elegir entre ' + grupo.length + ' avisos en este punto' : 'Acercar para explorar ' + grupo.length + ' avisos')
+                    ? (this.puedeAbrirColumna(grupo)
+                        ? 'Elegir entre ' + grupo.length + (mismoPunto ? ' avisos en este punto' : ' avisos cercanos')
+                        : 'Acercar para explorar ' + grupo.length + ' avisos')
                     : (p.tipo || 'Inmueble') + ': ' + formatearPrecio(p, state.operacion);
                 const marker = this.crearMarcador({ lat: p.latitud, lng: p.longitud }, elemento,
                     () => this.abrirGrupo(grupo), etiqueta);
@@ -314,61 +306,50 @@
                 grupo.forEach((dato) => this.markerMap.set(dato.id, marker));
             });
         }
+        static puedeAbrirColumna(grupo) {
+            if (grupo.every(p => p.latitud === grupo[0].latitud && p.longitud === grupo[0].longitud)) return true;
+            if (this.map.getZoom() >= Math.min(ZOOM_MAXIMO_GRUPOS, this.map.getMaxZoom?.() || 22)) return true;
+            const pixeles = grupo.map(p => this.proyectar(p));
+            // Puntos casi superpuestos en pantalla, sin deducir identidad ni distancia.
+            return Math.max(...pixeles.map(p => p.x)) - Math.min(...pixeles.map(p => p.x)) <= 12
+                && Math.max(...pixeles.map(p => p.y)) - Math.min(...pixeles.map(p => p.y)) <= 12;
+        }
         static abrirGrupo(grupo) {
             if (grupo.length === 1) { CardManager.mostrar(grupo[0]); this.seleccionarMarcador(grupo[0].id); return; }
-            const mismoPunto = grupo.every((p) => p.latitud === grupo[0].latitud && p.longitud === grupo[0].longitud);
-            if (mismoPunto) { this.abrirCirculo(grupo); return; }
-            const maxZoom = this.map.getMaxZoom?.() || 22;
+            if (this.puedeAbrirColumna(grupo)) {
+                const clave = grupo.map(p => p.id).join(',');
+                if (this.grupoExpandido === clave) this.cerrarPopup();
+                else this.abrirColumna(grupo, clave);
+                return;
+            }
+            const maxZoom = Math.min(ZOOM_MAXIMO_GRUPOS, this.map.getMaxZoom?.() || 22);
             if (this.map.getZoom() < maxZoom) {
                 const posiciones = grupo.map((p) => this.esMapLibre ? [p.longitud, p.latitud] : [p.latitud, p.longitud]);
                 const bounds = this.esMapLibre ? posiciones.reduce((b, punto) => b.extend(punto), new (MAPLIBRE().LngLatBounds)()) : L.latLngBounds(posiciones);
                 this.map.fitBounds(bounds, { padding: this.esMapLibre ? 100 : [100, 100], maxZoom: Math.min(maxZoom, this.map.getZoom() + 2) });
                 return;
             }
-            const lista = document.createElement('div');
-            const descripcion = document.createElement('p');
-            descripcion.textContent = 'Avisos cercanos en esta vista. Seleccioná uno para ver sus datos.';
-            lista.appendChild(descripcion);
-            grupo.forEach((p) => {
-                const boton = document.createElement('button');
-                boton.type = 'button'; boton.className = 'shared-location-option';
-                boton.textContent = (p.tipo || 'Inmueble') + ' · ' + (p.direccion || p.titulo || 'Sin dirección') + ' · ' + formatearPrecio(p, state.operacion) + ' · ' + p.fuente;
-                boton.addEventListener('click', () => { this.cerrarPopup(); CardManager.mostrar(p); this.seleccionarMarcador(p.id); });
-                lista.appendChild(boton);
-            });
-            this.mostrarPopup(grupo[0], lista);
         }
-        static abrirCirculo(grupo) {
-            const anchoMapa = document.getElementById('map').getBoundingClientRect().width || window.innerWidth || 1280;
-            const distribucion = posicionesCirculares(grupo.length, anchoMapa < 480 ? 92 : 112);
+        static abrirColumna(grupo, clave) {
             const contenido = document.createElement('div');
-            const titulo = document.createElement('p');
-            titulo.className = 'shared-location-heading';
-            titulo.textContent = '🏘️ Elegí uno de los ' + grupo.length + ' avisos';
-            const ayuda = document.createElement('p');
-            ayuda.className = 'shared-location-help';
-            ayuda.textContent = 'Comparten un punto publicado. Revisá su precisión.';
+            contenido.className = 'shared-location-stack';
+            const mismoPunto = grupo.every(p => p.latitud === grupo[0].latitud && p.longitud === grupo[0].longitud);
+            contenido.title = (mismoPunto ? 'Comparten un punto publicado.' : 'Están cerca en esta vista.')
+                + ' Revisá la precisión de cada aviso.';
+            contenido.setAttribute('role', 'group');
+            contenido.setAttribute('aria-label', grupo.length + (mismoPunto ? ' avisos en el mismo punto' : ' avisos cercanos en esta vista'));
+            const cerrar = document.createElement('button');
+            cerrar.type = 'button'; cerrar.className = 'shared-location-close';
+            cerrar.textContent = '×';
+            cerrar.setAttribute('aria-label', 'Cerrar avisos del grupo');
+            cerrar.addEventListener('click', (e) => { e.stopPropagation(); this.cerrarPopup(); });
             const ventana = document.createElement('div');
             ventana.className = 'shared-location-viewport';
-            const circulo = document.createElement('div');
-            circulo.className = 'shared-location-circle';
-            circulo.style.width = circulo.style.height = distribucion.tamano + 'px';
-            circulo.setAttribute('role', 'group');
-            circulo.setAttribute('aria-label', grupo.length + ' avisos en el mismo punto');
-            grupo.forEach((p, i) => {
-                const posicion = distribucion.posiciones[i];
-                const linea = document.createElement('span');
-                linea.className = 'shared-location-leg';
-                linea.setAttribute('aria-hidden', 'true');
-                linea.style.left = linea.style.top = distribucion.centro + 'px';
-                linea.style.width = distribucion.radio + 'px';
-                linea.style.transform = 'rotate(' + posicion.angulo + 'rad)';
+            ventana.addEventListener('wheel', (e) => e.stopPropagation());
+            grupo.forEach((p) => {
                 const boton = document.createElement('button');
                 boton.type = 'button';
                 boton.className = 'property-marker shared-location-marker';
-                boton.style.width = distribucion.ancho + 'px';
-                boton.style.left = posicion.x + 'px';
-                boton.style.top = posicion.y + 'px';
                 boton.textContent = iconoTipo(p.tipo) + ' ' + formatearPrecio(p, state.operacion, true);
                 const descripcion = (p.tipo || 'Inmueble') + ' · ' + (p.direccion || p.titulo || 'Sin dirección')
                     + ' · ' + formatearPrecio(p, state.operacion) + ' · ' + (p.fuente || 'Fuente no informada');
@@ -377,66 +358,50 @@
                 boton.addEventListener('click', (e) => {
                     e.stopPropagation(); this.cerrarPopup(); CardManager.mostrar(p); this.seleccionarMarcador(p.id);
                 });
-                circulo.append(linea, boton);
+                ventana.append(boton);
             });
-            const centro = document.createElement('span');
-            centro.className = 'shared-location-center';
-            centro.style.left = centro.style.top = distribucion.centro + 'px';
-            centro.textContent = '📍 ' + grupo.length + ' avisos';
-            circulo.append(centro);
-            ventana.append(circulo);
-            contenido.append(titulo, ayuda, ventana);
+            contenido.append(cerrar, ventana);
             this.mostrarPopup(grupo[0], contenido, true);
+            this.grupoExpandido = clave;
         }
-        static mostrarPopup(p, contenido, circular = false) {
+        static mostrarPopup(p, contenido, columna = false) {
             this.cerrarPopup();
-            const opciones = { maxWidth: circular ? '640px' : '320px', className: circular ? 'shared-location-popup' : '' };
-            if (circular) Object.assign(opciones, this.ajustarCirculo(p, contenido));
+            const opciones = { maxWidth: columna ? '128px' : '320px', className: columna ? 'shared-location-stack-popup' : '' };
+            if (columna) {
+                Object.assign(opciones, this.ajustarColumna(p, contenido));
+                opciones.closeButton = false;
+                opciones.closeOnClick = false;
+            }
             if (this.esMapLibre) {
                 this.popup = new (MAPLIBRE().Popup)(opciones)
                     .setLngLat([p.longitud, p.latitud]).setDOMContent(contenido).addTo(this.map);
-            } else this.popup = L.popup({ maxHeight: circular ? 440 : 260, maxWidth: circular ? 640 : 320, className: circular ? 'shared-location-popup' : '' })
+            } else this.popup = L.popup({ ...opciones, maxHeight: columna ? undefined : 260 })
                 .setLatLng([p.latitud, p.longitud]).setContent(contenido).openOn(this.map);
         }
-        static ajustarCirculo(p, contenido) {
+        static ajustarColumna(p, contenido) {
             const mapa = document.getElementById('map').getBoundingClientRect();
             const cabecera = document.querySelector('.floating-header')?.getBoundingClientRect();
             const filtros = document.getElementById('filter-dock').getBoundingClientRect();
             const anchoMapa = mapa.width || window.innerWidth || 1280;
-            const arriba = (cabecera?.bottom || 100) - (mapa.top || 0) + 12;
+            const arriba = (cabecera?.bottom || 100) - (mapa.top || 0) + 24;
             const abajo = (filtros.top || (window.innerHeight || 800) - 150) - (mapa.top || 0) - 16;
             const punto = this.proyectar(p);
-            const ventana = contenido.children[2];
-            const tamano = parseFloat(ventana.children[0].style.width);
-            const ancho = Math.min(tamano, 580, anchoMapa - 64);
-            ventana.style.width = ancho + 'px';
-            const anchoPopup = ancho + 32;
-            const alturaDeseada = Math.min(tamano, 420) + 100;
-            const espacioCentrado = 2 * Math.min(punto.y - arriba, abajo - punto.y) - 20;
-            let anchor, espacio, flotante = false, offset = [0, 0];
-            if (espacioCentrado >= Math.min(alturaDeseada, 340) && punto.x > anchoPopup + 16) {
-                anchor = 'right'; espacio = espacioCentrado;
-            } else if (espacioCentrado >= Math.min(alturaDeseada, 340) && anchoMapa - punto.x > anchoPopup + 16) {
-                anchor = 'left'; espacio = espacioCentrado;
-            } else if (espacioCentrado >= alturaDeseada) {
-                // Centrar el selector en una pantalla angosta, sin mover el punto.
-                anchor = 'right'; espacio = espacioCentrado; flotante = true;
-                const centroX = Math.max(anchoPopup / 2 + 12, Math.min(punto.x, anchoMapa - anchoPopup / 2 - 12));
-                offset = [centroX + anchoPopup / 2 - punto.x, 0];
-            } else {
-                const espacioArriba = punto.y - arriba - 16;
-                const espacioAbajo = abajo - punto.y - 16;
-                anchor = espacioArriba > espacioAbajo ? 'bottom' : 'top';
-                espacio = Math.max(espacioArriba, espacioAbajo);
-                const centroX = Math.max(anchoPopup / 2 + 12, Math.min(punto.x, anchoMapa - anchoPopup / 2 - 12));
-                offset = [centroX - punto.x, 0];
-            }
-            const alto = Math.max(90, Math.min(420, espacio - 100));
+            const ventana = contenido.children[1];
+            const alto = Math.min(ventana.children.length * 38 + Math.max(0, ventana.children.length - 1) * 8 + 8,
+                Math.max(46, abajo - arriba));
             ventana.style.maxHeight = alto + 'px';
-            if (tamano > ancho || tamano > alto) contenido.children[1].textContent += ' Deslizá para ver todos los globitos.';
-            return { anchor, offset, className: 'shared-location-popup' + (flotante ? ' shared-location-floating' : '') };
+            // Columna preferentemente a la izquierda del pin. Son offsets de UI.
+            const ancho = 128, separacion = 68;
+            const izquierda = punto.x - separacion - ancho;
+            const abrirIzquierda = izquierda >= 8 || anchoMapa - punto.x - separacion - ancho < 8;
+            const inicio = Math.max(8, Math.min(abrirIzquierda ? izquierda : punto.x + separacion, anchoMapa - ancho - 8));
+            const centroY = Math.max(arriba + alto / 2, Math.min(punto.y - 18, abajo - alto / 2));
+            return {
+                anchor: abrirIzquierda ? 'right' : 'left',
+                offset: [inicio + (abrirIzquierda ? ancho : 0) - punto.x, centroY - punto.y],
+            };
         }
-        static cerrarPopup() { this.popup?.remove(); this.popup = null; }
+        static cerrarPopup() { this.popup?.remove(); this.popup = null; this.grupoExpandido = null; }
         static seleccionarMarcador(id) {
             this.deseleccionarTodos();
             const marker = this.markerMap.get(id);
