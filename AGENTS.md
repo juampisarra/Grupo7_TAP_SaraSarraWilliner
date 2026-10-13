@@ -57,6 +57,8 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+El 13 de octubre, por pedido del usuario, se retiró de la ficha del mapa el enlace fijo «Ubicaciones: fuentes originales / OpenStreetMap» y su estilo sin uso. La ficha conserva la inmobiliaria, el aviso original y la precisión de ubicación; el mapa conserva su atribución cartográfica. La mención de OpenStreetMap para ubicaciones geocodificadas sigue dentro del mensaje de precisión.
+
 ### Burbujas en columna lateral — 13 de octubre de 2026
 
 Corrección posterior: Bolívar 137 (Gaggiotti/Avantix) tiene coordenadas distintas por fuente y el criterio de igualdad exacta provocaba zoom hasta el máximo y una lista blanca. Ahora también abre la columna si el grupo ocupa como máximo 12 px en cada eje de pantalla. Los grupos más extendidos acercan hasta zoom 18 como máximo automático; si continúan solapados, abren la misma columna. El zoom manual sigue disponible y los puntos distintos pueden separarse al acercar. El texto distingue puntos compartidos de avisos cercanos; este criterio visual no identifica duplicados ni acredita un mismo edificio. Cada ficha conserva fuente, precisión y coordenadas propias. Una prueba reproduce el par real de Bolívar y comprueba apertura sin zoom, selección de ambas fuentes y preservación de ambos registros; también verifica el límite automático y la apertura posterior. Revisión real con filtro Oficina en navegador y celular: dos burbujas directas y ficha Avantix correcta, con fotos, precisión y enlace. Se restauró el tamaño habitual. La búsqueda textual no se verificó en esta ejecución, cuyo proceso local carecía de variables Elasticsearch.
