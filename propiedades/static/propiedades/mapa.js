@@ -455,7 +455,11 @@
                 etiqueta.textContent = p[campo] + ' ' + nombre; specs.appendChild(etiqueta);
             });
             const features = document.getElementById('card-features'); features.replaceChildren();
-            (p.caracteristicas || '').split('\n').map((t) => t.trim()).filter(Boolean).slice(0, 4).forEach((texto) => {
+            const tags = [...new Set((p.caracteristicas || '')
+                .split(/[\r\n;]+/)
+                .map((t) => t.trim())
+                .filter(Boolean))].slice(0, 4);
+            tags.forEach((texto) => {
                 const etiqueta = document.createElement('span'); etiqueta.className = 'feature-pill';
                 etiqueta.textContent = texto; features.appendChild(etiqueta);
             });
