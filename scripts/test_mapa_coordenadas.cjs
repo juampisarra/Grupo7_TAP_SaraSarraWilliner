@@ -37,6 +37,7 @@ class Elemento {
 function entorno() {
     const elementos = new Map(), marcadores = [];
     const porId = id => { if (!elementos.has(id)) elementos.set(id, new Elemento()); return elementos.get(id); };
+    porId('map-config').textContent = JSON.stringify({ maptilerApiKey: 'prueba' });
     const tipos = ['Casa','Campo','Nave Industrial'].map(tipo => {
         const b = new Elemento('button'); b.dataset.filterTipo = tipo;
         b.dataset.disponibleAlquiler = 'true'; b.dataset.disponibleVenta = 'true'; return b;
@@ -259,9 +260,8 @@ async function main() {
     const gl = entorno();
     gl.porId('map').dataset.engine = 'maplibre';
     gl.MapManager.init(); gl.MapManager.agregarEdificios();
-    assert.equal(gl.mapa.opciones.style, 'https://tiles.openfreemap.org/styles/bright');
-    assert.equal(gl.mapa.source.url, 'https://tiles.openfreemap.org/planet');
-    assert.equal(gl.mapa.capa.type, 'fill-extrusion');
+    assert.equal(gl.mapa.opciones.style, 'https://api.maptiler.com/maps/streets-v4/style.json?key=prueba');
+    assert.equal(gl.mapa.source, undefined, 'Sin edificios en el estilo no carga fuentes de otro proveedor');
     gl.state.propiedades = [{ ...base, id: 10 }];
     gl.MapManager.renderizarMarcadores(gl.state.propiedades);
     assert.deepEqual(Array.from(gl.MapManager.marcadores[0].coordenadas), [-61.49, -31.25], 'MapLibre recibe longitud antes de latitud');
@@ -487,12 +487,23 @@ async function main() {
 
     const sinClave = entorno();
     sinClave.porId('map').dataset.engine = 'maplibre';
-    sinClave.MapManager.init(); sinClave.UI.init();
-    assert.equal(sinClave.estilos[0].disabled, false);
-    assert.equal(sinClave.estilos[1].disabled, true);
-    assert.equal(sinClave.estilos[2].disabled, true);
+    sinClave.porId('map-config').textContent = JSON.stringify({ maptilerApiKey: '   ' });
+    sinClave.porId('estilo-seleccionado').textContent = 'Calles'; // Texto inicial de la plantilla.
+    let consultasSinClave = 0;
+    sinClave.contexto.fetch = async () => { consultasSinClave++; throw new Error('No debe hacer solicitudes sin clave'); };
+    assert.throws(() => sinClave.MapManager.init(), /MAPTILER_API_KEY/);
+    sinClave.eventosDocumento.DOMContentLoaded();
+    assert.equal(sinClave.MapManager.map, null, 'Sin clave no crea un mapa de otro proveedor');
+    assert.equal(sinClave.mapa.opciones, undefined);
+    assert.equal(sinClave.porId('search-error').hidden, false);
+    assert.ok(sinClave.porId('error-text').textContent.includes('MAPTILER_API_KEY'));
+    assert.equal(sinClave.porId('loading-toast').hidden, true);
+    assert.equal(sinClave.porId('results-count').textContent, 'Mapa no disponible');
+    assert.ok(sinClave.estilos.every(btn => btn.disabled), 'Sin clave todas las vistas quedan deshabilitadas');
+    assert.equal(consultasSinClave, 0, 'No consulta servicios ni propiedades sin configurar el mapa');
     assert.equal(await sinClave.MapManager.cambiarEstilo('satelite'), false);
+    assert.equal(await sinClave.MapManager.cambiarEstilo('calles'), false);
     assert.equal(sinClave.porId('estilo-seleccionado').textContent, 'Calles');
-    console.log('OK: coordenadas, agrupación, búsqueda y MapLibre con OpenFreeMap/MapTiler y edificios sin fuentes duplicadas.');
+    console.log('OK: coordenadas, agrupación, búsqueda y MapLibre con MapTiler, tres vistas y error sin clave.');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

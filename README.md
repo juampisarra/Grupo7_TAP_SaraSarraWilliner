@@ -4,6 +4,8 @@ Actualización local del 13 de octubre: MapLibre/MapTiler funcionan y el usuario
 
 Nuevo selector local de vistas: botón en la esquina inferior izquierda que muestra Calles, Oscuro o Satélite. Con MapTiler conserva los edificios y la cámara; Satélite añade los edificios de Planet v4 sobre las imágenes con etiquetas. Verificado con pruebas automáticas y las tres configuraciones reales del proveedor; la revisión visual del selector está pendiente por bloqueo de la herramienta del navegador. No necesita nuevas credenciales ni cambios de datos.
 
+Por decisión del equipo, OpenFreeMap se retiró del mapa activo. Se utiliza MapLibre + MapTiler y se requiere `MAPTILER_API_KEY` en `.env` y en Environment de Render. Sin clave aparece un mensaje de configuración; el backend y los jobs pueden ejecutarse sin ella. Las tres vistas y los edificios se conservan. La retirada sigue local, pendiente de publicación por el usuario.
+
 **Actualización del 12 de octubre:** mapa y API con fotos públicos comprobados. El usuario compartió logs del workflow de enriquecimiento con **ocho coordenadas Gaggiotti mejoradas**, usando el esquema `0013`; queda comprobar el resultado posterior en API/mapa. Ver [guía paso a paso del workflow y resultados](docs/geocodificacion.md#ejecutar-desde-github-actions-paso-a-paso). Las notas anteriores de preparación conservan su contexto histórico.
 
 Fotos agregadas localmente el 12 de octubre: URLs ordenadas para las tres fuentes, portada, API y muestra mínima en HTML. **Requiere migración `0012` y luego ingesta para cargar fotos**; todavía no está publicado. No agrega servicios, Secrets ni almacenamiento de archivos. Ver [fotos y publicación](docs/fotos.md).
@@ -36,7 +38,7 @@ El backend implementa scrapers, normalización, persistencia, ingesta, indexaci�
 | Elasticsearch / Elastic Cloud | Índice de texto completo y ranking por relevancia alojado en Elastic Cloud; reconstruible desde PostgreSQL. |
 | Render | Django desplegado en el plan Free y conectado a Supabase y Elastic Cloud. |
 | GitHub Actions | Ingesta y reconstrucción del índice los lunes a las 00:00 de Argentina, con ejecución manual disponible. |
-| Frontend | Django Templates, JavaScript y MapLibre GL JS en `/propiedades/mapa/`, consumiendo la API de Django. MapTiler opcional por clave; OpenFreeMap sin clave. |
+| Frontend | Django Templates, JavaScript y MapLibre GL JS en `/propiedades/mapa/`, consumiendo la API de Django. Cartografía de MapTiler con `MAPTILER_API_KEY`. |
 
 PostGIS forma parte de PostgreSQL. Elasticsearch es un índice separado que no reemplaza la base principal y no realizará filtros geográficos. SQLite sigue disponible para desarrollo local. La conexión PostgreSQL y las migraciones hasta `0011` están verificadas en Supabase. No se realizó un traslado automático de datos locales.
 

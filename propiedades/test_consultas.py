@@ -225,7 +225,7 @@ class ConsultaPropiedadesTests(TestCase):
         self.assertContains(respuesta, "Alquilar")
 
     @override_settings(MAPTILER_API_KEY="")
-    def test_mapa_sin_clave_conserva_configuracion_opcional(self):
+    def test_mapa_sin_clave_no_impide_servir_la_pagina(self):
         respuesta = self.client.get("/propiedades/mapa/")
         self.assertEqual(respuesta.context["map_config"], {"maptilerApiKey": ""})
         self.assertContains(respuesta, 'data-engine="maplibre"')

@@ -1,6 +1,6 @@
 /**
  * Interfaz del Observatorio: consultas en Django y presentación del mapa.
- * MapLibre usa MapTiler al configurar su clave; sin ella utiliza OpenFreeMap.
+ * MapLibre dibuja el mapa con cartografía de MapTiler, que requiere su clave.
  * La agrupación en pantalla es visual; todas las distancias se filtran en PostGIS.
  */
 (() => {
@@ -19,7 +19,6 @@
     const ZOOM_MAXIMO_GRUPOS = 18;
     const ORIGEN = window.location.origin;
     const MAPLIBRE = () => window.maplibregl;
-    const ESTILO_OPENFREEMAP = 'https://tiles.openfreemap.org/styles/bright';
     const normalizar = (texto) => String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
     const iconosTipo = {
@@ -156,9 +155,7 @@
         static puntoMarker = null;
         static popup = null;
         static grupoExpandido = null;
-        static usaMapTiler = false;
         static estiloInicial = null;
-        static usaMapTilerInicial = false;
         static fuenteEdificiosMapTiler = null;
         static solicitudEstilo = null;
 
@@ -168,12 +165,10 @@
                 const gl = MAPLIBRE();
                 if (!gl) throw new Error('Falta cargar MapLibre. Seguí los pasos de la guía del mapa.');
                 const config = JSON.parse(document.getElementById('map-config')?.textContent || '{}');
-                this.usaMapTiler = Boolean(config.maptilerApiKey);
-                const estilo = this.usaMapTiler
-                    ? `https://api.maptiler.com/maps/streets-v4/style.json?key=${encodeURIComponent(config.maptilerApiKey)}`
-                    : ESTILO_OPENFREEMAP;
+                const clave = String(config.maptilerApiKey || '').trim();
+                if (!clave) throw new Error('Falta configurar MAPTILER_API_KEY en .env o en Render para mostrar el mapa.');
+                const estilo = `https://api.maptiler.com/maps/streets-v4/style.json?key=${encodeURIComponent(clave)}`;
                 this.estiloInicial = estilo;
-                this.usaMapTilerInicial = this.usaMapTiler;
                 this.map = new gl.Map({
                     container: 'map', style: estilo,
                     center: [RAFAELA[1], RAFAELA[0]], zoom: 15.3, pitch: 45, bearing: -17,
@@ -181,7 +176,7 @@
                 });
                 this.map.addControl(new gl.NavigationControl(), 'bottom-right');
                 this.map.on('style.load', () => this.agregarEdificios());
-                if (this.usaMapTiler) this.agregarLogoMapTiler();
+                this.agregarLogoMapTiler();
             } else {
                 this.map = L.map('map', { center: RAFAELA, zoom: 14, zoomControl: false });
                 L.control.zoom({ position: 'bottomright' }).addTo(this.map);
@@ -201,12 +196,8 @@
         }
         static async cambiarEstilo(nombre) {
             const mapas = { calles: 'streets-v4', oscuro: 'streets-v4-dark', satelite: 'hybrid-v4' };
-            if (!this.esMapLibre || !Object.hasOwn(mapas, nombre)) return false;
+            if (!this.esMapLibre || !this.estiloInicial || !Object.hasOwn(mapas, nombre)) return false;
             if (nombre === state.estiloMapa) return true;
-            if (!this.usaMapTilerInicial) {
-                UI.errorEstilo('Esta vista no está disponible en este momento.');
-                return false;
-            }
             this.solicitudEstilo?.abort();
             const controller = new AbortController();
             this.solicitudEstilo = controller;
@@ -250,7 +241,6 @@
             }
         }
         static recordarFuenteEdificios(estilo) {
-            if (!this.usaMapTiler) return;
             const capa = estilo?.layers?.find(c => c['source-layer'] === 'building' && c.source);
             const fuente = estilo?.sources?.[capa?.source];
             if (fuente?.type === 'vector') this.fuenteEdificiosMapTiler = { ...fuente };
@@ -290,16 +280,11 @@
             const edificios = capas.find(c => c['source-layer'] === 'building' && c.source);
             let fuente = edificios?.source;
             if (!fuente) {
-                if (this.usaMapTiler) {
-                    // Satélite trae imágenes y etiquetas, sin polígonos de edificios.
-                    // Reutilizar Planet v4 de Calles, del mismo proveedor y con su clave.
-                    if (!this.fuenteEdificiosMapTiler) return;
-                    fuente = 'observatorio-planet-v4';
-                    if (!this.map.getSource(fuente)) this.map.addSource(fuente, this.fuenteEdificiosMapTiler);
-                } else {
-                    fuente = 'observatorio-edificios';
-                    this.map.addSource(fuente, { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
-                }
+                // Satélite trae imágenes y etiquetas, sin polígonos de edificios.
+                // Reutilizar Planet v4 de Calles, del mismo proveedor y con su clave.
+                if (!this.fuenteEdificiosMapTiler) return;
+                fuente = 'observatorio-planet-v4';
+                if (!this.map.getSource(fuente)) this.map.addSource(fuente, this.fuenteEdificiosMapTiler);
             }
             const etiqueta = capas.find((capa) => capa.type === 'symbol' && capa.layout?.['text-field']);
             this.map.addLayer({
@@ -307,10 +292,9 @@
                 type: 'fill-extrusion', minzoom: 15, filter: ['!=', ['get', 'hide_3d'], true],
                 paint: {
                     'fill-extrusion-color': '#c4c6b9',
-                    // Planet v4 usa height/height_min; OpenMapTiles usa render_*.
-                    // Los 6 m de respaldo en MapTiler son ilustrativos, no medidos.
-                    'fill-extrusion-height': ['coalesce', ['get', 'height'], ['get', 'render_height'], this.usaMapTiler ? 6 : 0],
-                    'fill-extrusion-base': ['coalesce', ['get', 'height_min'], ['get', 'render_min_height'], 0],
+                    // Planet v4 usa height/height_min. El respaldo de 6 m es ilustrativo.
+                    'fill-extrusion-height': ['coalesce', ['get', 'height'], 6],
+                    'fill-extrusion-base': ['coalesce', ['get', 'height_min'], 0],
                     'fill-extrusion-opacity': 0.65,
                 },
             }, etiqueta?.id);
@@ -648,7 +632,7 @@
         static estilosCargando(cargando) {
             document.getElementById('estilos-menu').setAttribute('aria-busy', String(cargando));
             document.querySelectorAll('[data-estilo-mapa]').forEach(btn => {
-                const disponible = MapManager.esMapLibre && (btn.dataset.estiloMapa === 'calles' || MapManager.usaMapTilerInicial);
+                const disponible = MapManager.esMapLibre && Boolean(MapManager.estiloInicial);
                 btn.disabled = cargando || !disponible;
                 btn.title = disponible ? '' : 'Vista no disponible en este momento';
             });
@@ -735,7 +719,10 @@
 
     function iniciar() {
         try { MapManager.init(); CardManager.init(); UI.init(); PropertyApiClient.buscarPropiedades(); }
-        catch (error) { UI.mostrarError(error.message); UI.mostrarCargando(false); }
+        catch (error) {
+            UI.mostrarError(error.message); UI.mostrarCargando(false); UI.estilosCargando(false);
+            document.getElementById('results-count').textContent = 'Mapa no disponible';
+        }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();

@@ -5,9 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
-    <!-- MapLibre dibuja el mapa; el proveedor se configura desde Django. -->
+    <!-- MapLibre dibuja el mapa de MapTiler; Django proporciona su clave. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261013-tipos-operacion">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261013-maptiler">
 </head>
 <body>
 <div class="app-container">
@@ -156,7 +156,7 @@
 <script type="module">
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
-    await import("{% static 'propiedades/mapa.js' %}?v=20261013-tipos-operacion");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261013-maptiler");
 </script>
 </body>
 </html>

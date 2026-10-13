@@ -104,7 +104,7 @@ ELASTICSEARCH_API_KEY = os.getenv("ELASTICSEARCH_API_KEY", "").strip()
 ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "propiedades").strip()
 
 # Clave de mapas para el navegador, restringida por origen en MapTiler.
-# Sin ella se conserva OpenFreeMap. No es la SECRET_KEY de Django.
+# Necesaria para mostrar el mapa. No es la SECRET_KEY de Django.
 MAPTILER_API_KEY = os.getenv("MAPTILER_API_KEY", "").strip()
 
 # Proveedor intercambiable sin cambiar código. Solo jobs, nunca visitas al mapa.

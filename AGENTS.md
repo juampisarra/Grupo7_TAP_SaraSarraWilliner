@@ -12,7 +12,7 @@ Las tres features principales acordadas son:
 2. Búsqueda de texto completo con Elasticsearch y ranking por relevancia.
 3. Búsqueda web con filtros estructurados y geográficos, utilizando exclusivamente PostGIS para la lógica geográfica.
 
-La prioridad es mantener el backend y su integración con el frontend ya incorporado por el equipo. `/propiedades/mapa/` utiliza Django Templates, JavaScript y MapLibre GL JS; `/propiedades/` conserva el listado de prueba. MapTiler es el proveedor opcional de mapas/edificios, con OpenFreeMap sin clave. No adoptar otro framework sin una decisión del equipo. Representar honestamente la precisión de las coordenadas.
+La prioridad es mantener el backend y su integración con el frontend ya incorporado por el equipo. `/propiedades/mapa/` utiliza Django Templates, JavaScript y MapLibre GL JS; `/propiedades/` conserva el listado de prueba. MapTiler es el único proveedor cartográfico del mapa activo y requiere `MAPTILER_API_KEY`. No adoptar otro framework sin una decisión del equipo. Representar honestamente la precisión de las coordenadas.
 
 Los resúmenes del mercado y análisis históricos siguen siendo posibles ampliaciones, no requisitos iniciales. No se trata de un sistema de gestión de contratos o alquileres.
 
@@ -27,7 +27,7 @@ Los resúmenes del mercado y análisis históricos siguen siendo posibles amplia
 | Elasticsearch / Elastic Cloud | Elasticsearch es el índice especializado exclusivamente en búsqueda de texto completo y ranking por relevancia; se alojará en Elastic Cloud. No reemplaza PostgreSQL ni realiza filtros geográficos. |
 | Render | Django está desplegado y conectado a Supabase y Elastic Cloud. `/propiedades/` permite probar búsqueda textual por relevancia mediante un formulario simple. |
 | GitHub Actions | Ejecuta el comando general de ingesta y reconstruye Elasticsearch todos los lunes a las 00:00 de Argentina; también admite ejecución manual. Secrets, concurrencia y primera ejecución están verificados. |
-| Frontend | `/propiedades/mapa/` utiliza Django Templates, CSS, JavaScript y MapLibre GL JS, activado por el usuario. Con `MAPTILER_API_KEY` usa Streets v4 de MapTiler; sin clave utiliza OpenFreeMap. Consulta todas las páginas de la API, coordinando Elasticsearch y PostGIS desde Django. |
+| Frontend | `/propiedades/mapa/` utiliza Django Templates, CSS, JavaScript y MapLibre GL JS, activado por el usuario. Requiere `MAPTILER_API_KEY` para los mapas de MapTiler, con Calles, Oscuro y Satélite. Consulta todas las páginas de la API, coordinando Elasticsearch y PostGIS desde Django. |
 
 Supabase/PostgreSQL, PostGIS y Elasticsearch son decisiones del stack objetivo. La conexión PostgreSQL está implementada mediante psycopg y variables de entorno, y se verificaron independientemente las migraciones hasta `0012` en Supabase el 12 de octubre de 2026; posteriormente el usuario compartió logs productivos de enriquecimiento que utilizan el esquema `0013`, con ocho aplicaciones. No se repitió la auditoría independiente de migraciones después de esos logs. En la revisión del 8 de octubre de 2026 se comprobaron 173 publicaciones, incluyendo datos guardados por el enriquecimiento inverso. No se realizó un traslado automático de SQLite. PostGIS y la búsqueda con Elasticsearch están desplegados. La ingesta programada reconstruye el índice completo después de persistir; la actualización incremental por publicación sigue pendiente. Sin configuración se utiliza SQLite para desarrollo local. Guardar `.env` como UTF-8 sin BOM para que se reconozca correctamente la primera variable.
 
@@ -56,6 +56,14 @@ Preparar solicitudes periódicas desde un servicio externo a una ruta ligera de 
 La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](https://cron-job.org/en/); falta comprobar una ejecución programada HTTP 200 en su historial y el intervalo efectivamente guardado (se propuso GET cada diez minutos). No presentar la creación del job como prueba de ejecución. Vercel fue una opción consultada, no adoptada.
 
 ## Estado real del repositorio
+
+### MapTiler como único proveedor del mapa activo — 13 de octubre de 2026
+
+El equipo confirmó retirar OpenFreeMap. Se eliminaron sus direcciones de estilo/edificios, la selección entre proveedores y las propiedades de altura propias de ese respaldo. MapLibre conserva Streets v4, Streets v4 Dark y Hybrid v4 de MapTiler, logo/atribución y reutilización de Planet v4 para los edificios de Satélite. Se conserva la agrupación, coordenadas, fichas, punto y filtros. Las menciones del respaldo en las etapas anteriores describen el estado histórico, ya reemplazado.
+
+`MAPTILER_API_KEY` es necesaria en `.env` y Environment de Render para mostrar el mapa. Su ausencia detiene únicamente la inicialización del mapa, muestra un mensaje de configuración, deshabilita las vistas y elimina el indicador de carga; no inicia solicitudes a otros proveedores. No exigir esta clave globalmente para iniciar Django, health, API o jobs. Los valores de las claves no se modificaron. CSS/JavaScript usan la versión `20261013-maptiler` para evitar la caché anterior.
+
+Validación: 27 pruebas Django de consultas/plantilla y pruebas Node de las tres vistas, edificios sin duplicación, marcadores/grupos, filtros y error sin clave aprobadas. Sintaxis y estáticos comprobados; SQLite efímero y servicios simulados, sin datos productivos modificados. La inspección visual independiente sigue pendiente por el bloqueo previo del navegador. Cambios locales, sin commit, push ni despliegue. Ver [guía del mapa](docs/mapa.md).
 
 ### Tipos disponibles según operación — 13 de octubre de 2026
 
