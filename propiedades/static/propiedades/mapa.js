@@ -20,6 +20,11 @@
     const ORIGEN = window.location.origin;
     const MAPLIBRE = () => window.maplibregl;
     const normalizar = (texto) => String(texto || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    function emitir(nombre, detalle) {
+        if (typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+            window.dispatchEvent(new CustomEvent(nombre, { detail: detalle }));
+        }
+    }
 
     const iconosTipo = {
         casa: '🏠', departamento: '🏢', ph: '🏘️', terreno: '📐', campo: '🌾',
@@ -110,6 +115,12 @@
                 state.propiedades = [...resultados.values()].filter(tieneCoordenadas);
                 state.total = total;
                 MapManager.renderizarMarcadores(state.propiedades);
+                emitir('observatorio:resultados', {
+                    propiedades: state.propiedades,
+                    total,
+                    operacion: state.operacion,
+                    hayTexto: Boolean(textoConsulta()),
+                });
                 UI.actualizarContador(total, state.propiedades.length);
                 UI.mostrarAviso([...avisos].join(' '));
                 UI.mostrarMensajeVacio(state.propiedades.length === 0, total);
@@ -117,6 +128,7 @@
                 if (controller.signal.aborted || state.abortController !== controller || error.name === 'AbortError') return;
                 state.propiedades = [];
                 MapManager.renderizarMarcadores([]);
+                emitir('observatorio:resultados', { propiedades: [], total: 0, operacion: state.operacion, hayTexto: false });
                 document.getElementById('results-count').textContent = 'Búsqueda no disponible';
                 UI.mostrarMensajeVacio(false);
                 UI.mostrarAviso('');
@@ -724,6 +736,31 @@
             document.getElementById('results-count').textContent = 'Mapa no disponible';
         }
     }
+    window.ObservatorioMapa = {
+        abrirPropiedad(id) {
+            const propiedad = state.propiedades.find((dato) => dato.id === Number(id));
+            if (!propiedad) return false;
+            MapManager.cerrarPopup();
+            CardManager.mostrar(propiedad);
+            MapManager.seleccionarMarcador(propiedad.id);
+            return true;
+        },
+        operacion() { return state.operacion; },
+        resultados() {
+            return {
+                propiedades: state.propiedades,
+                total: state.total,
+                operacion: state.operacion,
+                hayTexto: Boolean(textoConsulta()),
+            };
+        },
+        redimensionar() {
+            window.setTimeout(() => {
+                MapManager.map?.resize?.();
+                MapManager.renderizarMarcadores(state.propiedades);
+            }, 230);
+        },
+    };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar);
     else iniciar();
 })();

@@ -4,6 +4,16 @@ Cambios del 12 y 13 de octubre de 2026, después del pull `b74a52a`. El usuario 
 
 Después de confirmar MapTiler, el usuario autorizó recuperar colores, tipografía y emojis del diseño anterior y compactar todo el panel superior. Luego pidió reemplazar el círculo de avisos compartidos por burbujas apiladas al costado, sin marco envolvente. Está implementado y revisado en el navegador local; las posiciones geográficas reales se conservan.
 
+## Panel lateral de resultados
+
+El 24 de octubre de 2026 el equipo confirmó avanzar por etapas y comenzar solo con la vista en lista. El botón «Ver lista» abre un panel escondible inspirado en el patrón de Airbnb. En escritorio el panel ocupa aproximadamente la mitad izquierda y MapLibre recalcula el mapa en el espacio restante; hasta 900 px se superpone, y en celular ocupa todo el ancho. Escape o el botón de cierre lo ocultan.
+
+El panel reutiliza las propiedades con coordenadas ya cargadas por la búsqueda del mapa. Por eso siempre representa avisos que tienen marcador y no ejecuta una segunda consulta, no simula coordenadas ni altera la lógica de Elasticsearch/PostgreSQL/PostGIS. Informa la relación entre coincidencias totales y avisos ubicados, usa las fotos existentes y abre la ficha original al pulsar una tarjeta.
+
+La lista puede filtrarse localmente por dirección, tipo, inmobiliaria y otros textos ya cargados. Se ordena por relevancia cuando existe una consulta textual, por actualización o por precio ascendente/descendente; los precios desconocidos se conservan al final. Cambiar los filtros principales o la operación actualiza mapa y lista juntos. La versión de CSS y JavaScript es `20261024-panel-lista`.
+
+Esta etapa no incluye comparación, Gemini ni comentarios y no agrega migraciones, variables, dependencias o servicios. Validación: 27 pruebas Django de consultas/plantilla, regresión Node completa del mapa y `scripts/test_panel_resultados.cjs` para carga, filtro, orden, apertura de ficha y texto no interpretado como HTML. La herramienta de navegador integrado no pudo acceder a la página local y no había otro navegador controlable, por lo que la inspección visual independiente sigue pendiente. No se tocaron datos productivos.
+
 ## Qué está preparado
 
 - Blanco translúcido, azul, Plus Jakarta Sans y emojis del diseño anterior. Panel superior centrado, con ancho según contenido y controles más juntos; buscador arriba limitado a 290 px. En pantallas pequeñas usa dos filas. Controles compactos abajo.

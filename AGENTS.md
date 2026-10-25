@@ -57,6 +57,14 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Panel lateral de resultados del mapa — 24 de octubre de 2026
+
+El equipo pidió avanzar por partes y confirmó como primera etapa únicamente un panel escondible similar al patrón de Airbnb. El panel se abre desde «Ver lista» y muestra solo las propiedades con coordenadas que ya están representadas en el mapa para la búsqueda actual; no realiza otra consulta, no duplica filtros geográficos ni modifica coordenadas. En escritorio desplaza el mapa hacia la derecha y presenta dos columnas de tarjetas; en pantallas de hasta 900 px se superpone, y en celular ocupa todo el ancho. Cerrarlo restaura el mapa y solicita a MapLibre recalcular su tamaño.
+
+La lista conserva la operación y los filtros existentes, informa cuántos resultados tienen ubicación, permite filtrar localmente por dirección/tipo/inmobiliaria y ordenar por relevancia cuando hay texto, actualización o precio. Los precios desconocidos quedan al final. Cada tarjeta usa foto, precio, título, ubicación y características básicas; al pulsarla abre la ficha existente y centra su marcador. Los textos del aviso se insertan como texto, no como HTML.
+
+Esta etapa no implementa comparación, Gemini ni comentarios: no agrega modelos, migraciones, endpoints, variables de entorno o dependencias. Pasaron 27 pruebas Django de consultas/plantilla, la regresión Node del mapa y una prueba Node nueva de lista/filtro/orden/apertura/texto seguro. `check`, migraciones pendientes, sintaxis y estáticos fueron comprobados. La inspección visual independiente quedó bloqueada porque el navegador integrado no puede alcanzar `127.0.0.1` y no había otro navegador controlable; no se intentó eludir esa barrera. Cambios locales, sin commit, push, despliegue ni datos productivos modificados.
+
 ### MapTiler como único proveedor del mapa activo — 13 de octubre de 2026
 
 El equipo confirmó retirar OpenFreeMap. Se eliminaron sus direcciones de estilo/edificios, la selección entre proveedores y las propiedades de altura propias de ese respaldo. MapLibre conserva Streets v4, Streets v4 Dark y Hybrid v4 de MapTiler, logo/atribución y reutilización de Planet v4 para los edificios de Satélite. Se conserva la agrupación, coordenadas, fichas, punto y filtros. Las menciones del respaldo en las etapas anteriores describen el estado histórico, ya reemplazado.

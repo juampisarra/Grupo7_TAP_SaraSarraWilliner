@@ -223,6 +223,10 @@ class ConsultaPropiedadesTests(TestCase):
         self.assertContains(respuesta, 'id="map"')
         self.assertContains(respuesta, "Observatorio Inmobiliario")
         self.assertContains(respuesta, "Alquilar")
+        self.assertContains(respuesta, 'id="btn-resultados-panel"')
+        self.assertContains(respuesta, 'id="resultados-panel"')
+        self.assertContains(respuesta, "propiedades/explorador.")
+        self.assertContains(respuesta, "20261024-panel-lista")
 
     @override_settings(MAPTILER_API_KEY="")
     def test_mapa_sin_clave_no_impide_servir_la_pagina(self):

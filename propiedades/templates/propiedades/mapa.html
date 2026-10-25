@@ -7,10 +7,39 @@
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
     <!-- MapLibre dibuja el mapa de MapTiler; Django proporciona su clave. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261013-maptiler">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261024-panel-lista">
 </head>
 <body>
 <div class="app-container">
+    <button type="button" id="btn-resultados-panel" class="results-panel-toggle" aria-expanded="false" aria-controls="resultados-panel">
+        <span aria-hidden="true">☷</span> Ver lista
+    </button>
+    <aside id="resultados-panel" class="results-panel" aria-label="Propiedades en el mapa" hidden>
+        <div class="results-panel-header">
+            <div>
+                <p class="panel-eyebrow">Resultados del mapa</p>
+                <h2 id="resultados-panel-titulo">Propiedades</h2>
+            </div>
+            <button type="button" id="btn-cerrar-resultados" class="panel-close" aria-label="Cerrar lista">✕</button>
+        </div>
+        <div class="results-panel-tools">
+            <label for="panel-filtro-local">Filtrar esta lista
+                <input id="panel-filtro-local" type="search" maxlength="100" placeholder="Dirección, tipo o inmobiliaria">
+            </label>
+            <label for="panel-orden">Ordenar por
+                <select id="panel-orden">
+                    <option value="relevancia">Relevancia</option>
+                    <option value="recientes">Más recientes</option>
+                    <option value="precio-asc">Menor precio</option>
+                    <option value="precio-desc">Mayor precio</option>
+                </select>
+            </label>
+        </div>
+        <p id="resultados-panel-resumen" class="panel-summary" aria-live="polite"></p>
+        <div id="resultados-lista" class="results-grid"></div>
+        <p id="resultados-panel-vacio" class="panel-empty" hidden>No hay propiedades para mostrar con este filtro.</p>
+    </aside>
+
     <main class="map-viewport" aria-label="Mapa de propiedades">
         <div id="map" data-engine="maplibre" aria-label="Propiedades y sus ubicaciones"></div>
     </main>
@@ -156,7 +185,8 @@
 <script type="module">
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
-    await import("{% static 'propiedades/mapa.js' %}?v=20261013-maptiler");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261024-panel-lista");
+    await import("{% static 'propiedades/explorador.js' %}?v=20261024-panel-lista");
 </script>
 </body>
 </html>
