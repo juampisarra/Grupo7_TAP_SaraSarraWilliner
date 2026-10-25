@@ -67,6 +67,14 @@ La lista conserva la operación y los filtros existentes, informa cuántos resul
 
 Esta etapa no implementa comparación, Gemini ni comentarios: no agrega modelos, migraciones, endpoints, variables de entorno o dependencias. Pasaron 27 pruebas Django de consultas/plantilla, la regresión Node del mapa y una prueba Node nueva de lista/filtro/orden/apertura/texto seguro, incluyendo el traslado y la restauración del panel de filtros. `check`, migraciones pendientes, sintaxis y estáticos fueron comprobados. La inspección visual independiente quedó bloqueada porque el navegador integrado no puede alcanzar `127.0.0.1` y no había otro navegador controlable; no se intentó eludir esa barrera. Cambios locales, sin commit, push, despliegue ni datos productivos modificados.
 
+### Nuevas features acordadas y trabajo pendiente — 24 de octubre de 2026
+
+El equipo pidió sumar, avanzando de a una feature por vez: vista en lista ordenable y filtrable, selección de varias propiedades para compararlas con sus características y un texto generado por LLM, y comentarios en las publicaciones. La primera etapa es el panel lateral descrito arriba; no comenzar simultáneamente comparación y comentarios sin una indicación nueva del equipo.
+
+Para la presentación, los comentarios serán públicos y no exigirán registro ni autenticación. Esta es una decisión confirmada, pero todavía no hay modelo, migración, API ni interfaz de comentarios en el repositorio. Se conversó como diseño posible asociarlos al ID interno de `Propiedad`, mostrarlos en su ficha y permitir alias opcional con «Anónimo» como respaldo. Los límites de longitud, moderación desde Django Admin y protección contra abuso o frecuencia siguen siendo detalles propuestos: confirmarlos al implementar y conservar CSRF, validación del servidor y renderizado como texto, nunca como HTML.
+
+Para la comparación asistida, el equipo indicó Gemini como proveedor previsto por disponer de nivel gratuito. La comparación y la integración con Gemini siguen sin implementar. Cuando se autorice esa etapa, verificar nuevamente modelos, cuotas y condiciones vigentes; mantener la clave exclusivamente en el backend y en variables de entorno. No enviar al proveedor más datos de los necesarios para comparar las propiedades seleccionadas.
+
 ### MapTiler como único proveedor del mapa activo — 13 de octubre de 2026
 
 El equipo confirmó retirar OpenFreeMap. Se eliminaron sus direcciones de estilo/edificios, la selección entre proveedores y las propiedades de altura propias de ese respaldo. MapLibre conserva Streets v4, Streets v4 Dark y Hybrid v4 de MapTiler, logo/atribución y reutilización de Planet v4 para los edificios de Satélite. Se conserva la agrupación, coordenadas, fichas, punto y filtros. Las menciones del respaldo en las etapas anteriores describen el estado histórico, ya reemplazado.
