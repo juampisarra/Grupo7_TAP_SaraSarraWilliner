@@ -112,3 +112,42 @@ class ConsultaDireccion(models.Model):
     estado = models.CharField(max_length=20)
     resultado = models.JSONField(default=dict)
     consultada_en = models.DateTimeField(auto_now=True)
+
+
+class Comentario(models.Model):
+    """Comentario público asociado a una publicación del observatorio."""
+
+    propiedad = models.ForeignKey(
+        Propiedad,
+        on_delete=models.CASCADE,
+        related_name="comentarios",
+    )
+    autor = models.CharField(max_length=60, blank=True, default="Anónimo")
+    texto = models.TextField(max_length=500)
+    activo = models.BooleanField(default=True)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-creado_en", "-id"]
+
+    def __str__(self):
+        autor = (self.autor or "").strip() or "Anónimo"
+        resumen = (self.texto or "").strip()[:40]
+        return f"{autor} en #{self.propiedad_id}: {resumen}"
+
+    def clean(self):
+        super().clean()
+        if not isinstance(self.autor, str):
+            raise ValidationError({"autor": "El alias debe ser texto."})
+        if not isinstance(self.texto, str):
+            raise ValidationError({"texto": "El comentario debe ser texto."})
+        autor = self.autor.strip()
+        if len(autor) > 60:
+            raise ValidationError({"autor": "El alias puede tener hasta 60 caracteres."})
+        self.autor = autor or "Anónimo"
+        texto = self.texto.strip()
+        if len(texto) < 3:
+            raise ValidationError({"texto": "El comentario debe tener al menos 3 caracteres."})
+        if len(texto) > 500:
+            raise ValidationError({"texto": "El comentario puede tener hasta 500 caracteres."})
+        self.texto = texto
