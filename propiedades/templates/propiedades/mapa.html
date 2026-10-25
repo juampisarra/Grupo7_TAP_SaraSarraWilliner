@@ -7,7 +7,7 @@
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
     <!-- MapLibre dibuja el mapa de MapTiler; Django proporciona su clave. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261024-panel-lista">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261024-panel-filtros">
 </head>
 <body>
 <div class="app-container">
@@ -22,6 +22,14 @@
             </div>
             <button type="button" id="btn-cerrar-resultados" class="panel-close" aria-label="Cerrar lista">✕</button>
         </div>
+        <details id="panel-filtros" class="panel-search-filters">
+            <summary>
+                <span class="panel-filters-label">⚙️ Filtros</span>
+                <span id="panel-filtros-resumen">Todos los tipos · Dormitorios · Comodidades</span>
+                <span aria-hidden="true">⌄</span>
+            </summary>
+            <div id="panel-filter-slot" class="panel-filter-slot"></div>
+        </details>
         <div class="results-panel-tools">
             <label for="panel-filtro-local">Filtrar esta lista
                 <input id="panel-filtro-local" type="search" maxlength="100" placeholder="Dirección, tipo o inmobiliaria">
@@ -87,6 +95,7 @@
         </div>
     </div>
 
+    <div id="filter-dock-home" class="filter-dock-home">
     <section class="floating-filters" id="filter-dock" aria-label="Búsqueda y filtros">
         <div class="filters-main">
             <details id="tipos-menu" class="filter-menu">
@@ -154,6 +163,7 @@
             <button type="button" id="btn-quitar-punto" class="text-btn" hidden>Quitar punto</button>
         </div>
     </section>
+    </div>
 
     <div class="loading-toast" id="loading-toast" role="status" hidden>
         <span class="spinner" aria-hidden="true"></span><span id="loading-text">Buscando propiedades…</span>
@@ -185,8 +195,8 @@
 <script type="module">
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
-    await import("{% static 'propiedades/mapa.js' %}?v=20261024-panel-lista");
-    await import("{% static 'propiedades/explorador.js' %}?v=20261024-panel-lista");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261024-panel-filtros");
+    await import("{% static 'propiedades/explorador.js' %}?v=20261024-panel-filtros");
 </script>
 </body>
 </html>

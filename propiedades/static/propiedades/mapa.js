@@ -746,6 +746,13 @@
             return true;
         },
         operacion() { return state.operacion; },
+        filtros() {
+            return {
+                tipo: state.tipo,
+                dormitorios: state.dormitorios,
+                caracteristicas: [...state.caracteristicas],
+            };
+        },
         resultados() {
             return {
                 propiedades: state.propiedades,

@@ -18,7 +18,12 @@ class Elemento {
     set textContent(valor) { this._text = String(valor); this.children = []; }
     get textContent() { return this._text + this.children.map(h => h.textContent).join(''); }
     get innerHTML() { return this._html; }
-    append(...hijos) { this.children.push(...hijos); }
+    append(...hijos) {
+        hijos.forEach(hijo => {
+            if (hijo.parentNode) hijo.parentNode.children = hijo.parentNode.children.filter(actual => actual !== hijo);
+            hijo.parentNode = this; this.children.push(hijo);
+        });
+    }
     replaceChildren(...hijos) { this._text = ''; this._html = ''; this.children = hijos; }
     addEventListener(nombre, fn) { this.eventos[nombre] = fn; }
     setAttribute(nombre, valor) { this.attributes[nombre] = String(valor); }
@@ -35,6 +40,7 @@ function entorno() {
     const porId = id => { if (!elementos.has(id)) elementos.set(id, new Elemento()); return elementos.get(id); };
     const opcion = new Elemento('option'); porId('panel-orden').opcionRelevancia = opcion;
     porId('resultados-panel').hidden = true;
+    porId('filter-dock-home').append(porId('filter-dock'));
     const body = new Elemento('body');
     const documento = {
         readyState: 'loading', body,
@@ -42,7 +48,8 @@ function entorno() {
         addEventListener(nombre, fn) { eventosDocumento[nombre] = fn; },
     };
     const mapa = { abiertas: [], redimensiones: 0,
-        abrirPropiedad(id) { this.abiertas.push(id); }, redimensionar() { this.redimensiones++; } };
+        abrirPropiedad(id) { this.abiertas.push(id); }, redimensionar() { this.redimensiones++; },
+        filtros() { return { tipo: 'Casa', dormitorios: '2', caracteristicas: ['Patio'] }; } };
     const ventana = {
         ObservatorioMapa: mapa,
         addEventListener(nombre, fn) { eventosVentana[nombre] = fn; },
@@ -87,11 +94,14 @@ assert.match(e.porId('resultados-panel-resumen').textContent, /1 visibles/);
 e.porId('btn-resultados-panel').eventos.click();
 assert.equal(e.porId('resultados-panel').hidden, false);
 assert.equal(e.body.classList.contains('results-panel-open'), true);
+assert.equal(e.porId('filter-dock').parentNode, e.porId('panel-filter-slot'));
+assert.equal(e.porId('panel-filtros-resumen').textContent, 'Casa · 2 dorm. · Patio');
 assert.equal(e.mapa.redimensiones, 1);
 e.porId('resultados-lista').children[0].children[0].eventos.click();
 assert.deepEqual(e.mapa.abiertas, [3]);
 e.eventosDocumento.keydown({ key: 'Escape' });
 assert.equal(e.porId('resultados-panel').hidden, true);
+assert.equal(e.porId('filter-dock').parentNode, e.porId('filter-dock-home'));
 assert.equal(e.mapa.redimensiones, 2);
 
-console.log('OK panel de resultados: lista, filtro, orden, apertura y texto seguro');
+console.log('OK panel de resultados: lista, filtros compactos, orden, apertura y texto seguro');

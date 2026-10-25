@@ -79,10 +79,12 @@
             porId('resultados-panel').hidden = false;
             document.body.classList.add('results-panel-open');
             porId('btn-resultados-panel').setAttribute('aria-expanded', 'true');
+            this.moverFiltrosAlPanel();
             window.ObservatorioMapa?.redimensionar();
         }
 
         static cerrar() {
+            this.restaurarFiltros();
             porId('resultados-panel').hidden = true;
             document.body.classList.remove('results-panel-open');
             porId('btn-resultados-panel').setAttribute('aria-expanded', 'false');
@@ -90,11 +92,39 @@
             window.ObservatorioMapa?.redimensionar();
         }
 
+        static moverFiltrosAlPanel() {
+            porId('tipos-menu').open = false;
+            porId('mas-filtros').open = false;
+            porId('panel-filtros').open = false;
+            porId('panel-filter-slot').append(porId('filter-dock'));
+            this.actualizarResumenFiltros();
+        }
+
+        static restaurarFiltros() {
+            porId('tipos-menu').open = false;
+            porId('mas-filtros').open = false;
+            porId('panel-filtros').open = false;
+            porId('filter-dock-home').append(porId('filter-dock'));
+        }
+
+        static actualizarResumenFiltros() {
+            const filtros = window.ObservatorioMapa?.filtros?.() || {};
+            const comodidades = Array.isArray(filtros.caracteristicas) ? filtros.caracteristicas : [];
+            const dormitorio = filtros.dormitorios === '' || filtros.dormitorios === undefined
+                ? 'Dormitorios' : `${filtros.dormitorios} dorm.`;
+            porId('panel-filtros-resumen').textContent = [
+                filtros.tipo || 'Todos los tipos',
+                dormitorio,
+                comodidades.length ? comodidades.join(', ') : 'Comodidades',
+            ].join(' · ');
+        }
+
         static actualizar(detalle) {
             estado.propiedades = Array.isArray(detalle.propiedades) ? detalle.propiedades : [];
             estado.total = Number(detalle.total) || 0;
             estado.operacion = detalle.operacion === 'venta' ? 'venta' : 'alquiler';
             estado.hayTexto = Boolean(detalle.hayTexto);
+            this.actualizarResumenFiltros();
             const opcionRelevancia = porId('panel-orden').querySelector('option[value="relevancia"]');
             opcionRelevancia.disabled = !estado.hayTexto;
             if (!estado.hayTexto && estado.orden === 'relevancia') estado.orden = 'recientes';
