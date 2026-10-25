@@ -187,6 +187,29 @@
             <div class="card-features-row" id="card-features"></div>
             <a id="card-cta-btn" class="card-cta-btn" href="#" target="_blank" rel="noopener noreferrer">Ver aviso original ↗</a>
             <span class="card-agency-source" id="card-agency-source"></span>
+
+            <details id="card-comments-section" class="card-comments">
+                <summary class="card-comments-summary">
+                    <span class="card-comments-title">💬 Comentarios</span>
+                    <span id="card-comments-badge" class="card-comments-badge">0</span>
+                    <span aria-hidden="true" class="card-comments-chevron">⌄</span>
+                </summary>
+                <div class="card-comments-body">
+                    <p id="card-comments-status" class="card-comments-status" aria-live="polite">Todavía no hay comentarios en esta publicación.</p>
+                    <div id="card-comments-list" class="card-comments-list" aria-label="Comentarios de la publicación"></div>
+                    <form id="form-comentario" class="card-comment-form" novalidate>
+                        <label for="comentario-autor" class="sr-only">Alias opcional</label>
+                        <input id="comentario-autor" name="autor" type="text" maxlength="60" placeholder="Tu nombre o alias (opcional)" autocomplete="nickname">
+                        <label for="comentario-texto" class="sr-only">Escribir comentario</label>
+                        <textarea id="comentario-texto" name="texto" rows="2" maxlength="500" required placeholder="Dejá tu consulta o comentario sobre esta propiedad…"></textarea>
+                        <div class="card-comment-footer">
+                            <span id="comentario-contador" class="card-comment-counter">0 / 500</span>
+                            <button type="submit" id="btn-enviar-comentario" class="card-comment-submit">Publicar</button>
+                        </div>
+                        <p id="comentario-error" class="card-comment-error" role="alert" hidden></p>
+                    </form>
+                </div>
+            </details>
         </div>
     </article>
     <noscript><p class="search-error">Activá JavaScript para usar el mapa y sus filtros.</p></noscript>

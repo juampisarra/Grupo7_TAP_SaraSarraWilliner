@@ -10,11 +10,11 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button, summary { cursor: pointer; }
 button { color: inherit; }
 [hidden] { display: none !important; }
-button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible {
+button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
     outline: 3px solid #60a5fa; outline-offset: 3px;
 }
 .app-container { height: 100dvh; position: relative; overflow: hidden; background: #f1f5f9; }
@@ -207,6 +207,27 @@ select { border: 1px solid var(--line); border-radius: 10px; padding: 6px 9px; b
 .spec-item, .feature-pill { padding: 5px 8px; background: #f1f5f9; border-radius: 999px; font-size: 11px; }
 .card-cta-btn { display: block; text-align: center; color: white; background: linear-gradient(135deg, #3b82f6, #1d4ed8); text-decoration: none; padding: 11px; border-radius: 12px; font-size: 13px; font-weight: 700; }
 .card-agency-source { display: block; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.card-comments { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.card-comments-summary { display: flex; align-items: center; gap: 8px; list-style: none; padding: 8px 11px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; font-size: 12px; font-weight: 700; color: var(--ink); }
+.card-comments-summary::-webkit-details-marker { display: none; }
+.card-comments-summary:hover, .card-comments[open] .card-comments-summary { background: var(--blue-soft); border-color: #bfdbfe; color: var(--primary); }
+.card-comments-badge { margin-left: auto; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: white; font-size: 11px; font-weight: 700; color: var(--ink); }
+.card-comments-body { display: grid; gap: 10px; margin-top: 10px; }
+.card-comments-status { margin: 0; font-size: 12px; color: var(--muted); }
+.card-comments-list { display: grid; gap: 8px; max-height: 210px; overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
+.comment-item { display: grid; gap: 4px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; background: #f8fafc; }
+.comment-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-size: 11px; }
+.comment-author { font-weight: 700; color: var(--ink); }
+.comment-date { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.comment-text { margin: 0; font-size: 12px; line-height: 1.45; color: var(--ink); white-space: pre-wrap; word-break: break-word; }
+.card-comment-form { display: grid; gap: 7px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.card-comment-form input, .card-comment-form textarea { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: white; font-size: 12px; color: var(--ink); resize: vertical; }
+.card-comment-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-comment-counter { font-size: 11px; color: var(--muted); }
+.card-comment-submit { border: 0; border-radius: 10px; padding: 7px 13px; background: var(--primary); color: white; font-size: 12px; font-weight: 700; }
+.card-comment-submit:hover:not(:disabled) { background: #1d4ed8; }
+.card-comment-submit:disabled { opacity: .6; cursor: default; }
+.card-comment-error { margin: 0; padding: 7px 9px; border: 1px solid #fecaca; border-radius: 9px; background: #fef2f2; color: #991b1b; font-size: 11px; line-height: 1.4; }
 @media (max-width: 950px) {
     .floating-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
     .brand { min-width: 0; }

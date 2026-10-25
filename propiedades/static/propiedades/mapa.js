@@ -25,6 +25,27 @@
             window.dispatchEvent(new CustomEvent(nombre, { detail: detalle }));
         }
     }
+    function leerCookie(nombre) {
+        const prefijo = nombre + '=';
+        const partes = String(document.cookie || '').split(';');
+        for (const parte of partes) {
+            const limpia = parte.trim();
+            if (limpia.startsWith(prefijo)) {
+                try { return decodeURIComponent(limpia.slice(prefijo.length)); }
+                catch { return limpia.slice(prefijo.length); }
+            }
+        }
+        return '';
+    }
+    function formatearFechaComentario(iso) {
+        if (!iso) return '';
+        const fecha = new Date(iso);
+        if (Number.isNaN(fecha.getTime())) return '';
+        return fecha.toLocaleString('es-AR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+    }
 
     const iconosTipo = {
         casa: '🏠', departamento: '🏢', ph: '🏘️', terreno: '📐', campo: '🌾',
@@ -497,10 +518,21 @@
     }
 
     class CardManager {
+        static comentariosController = null;
+        static comentariosActuales = [];
+        static totalComentarios = 0;
+        static enviandoComentario = false;
+
         static init() {
             document.getElementById('carousel-btn-prev').addEventListener('click', () => this.cambiarFoto(-1));
             document.getElementById('carousel-btn-next').addEventListener('click', () => this.cambiarFoto(1));
             document.getElementById('card-close-btn').addEventListener('click', () => this.cerrar());
+            document.getElementById('comentario-texto')?.addEventListener('input', (e) => {
+                const largo = (e.target.value || '').length;
+                document.getElementById('comentario-contador').textContent = largo + ' / 500';
+                this.mostrarErrorComentario('');
+            });
+            document.getElementById('form-comentario')?.addEventListener('submit', (e) => this.enviarComentario(e));
         }
         static mostrar(p) {
             state.propiedadSeleccionada = p; state.fotoIndex = 0;
@@ -531,7 +563,154 @@
             document.getElementById('card-cta-btn').href = p.url_original || '#';
             document.getElementById('card-agency-source').textContent = 'Inmobiliaria: ' + (p.fuente || 'No informada');
             this.actualizarFoto();
+            const seccionComentarios = document.getElementById('card-comments-section');
+            if (seccionComentarios) {
+                seccionComentarios.open = false;
+                document.getElementById('comentario-texto').value = '';
+                document.getElementById('comentario-contador').textContent = '0 / 500';
+                this.mostrarErrorComentario('');
+                this.cargarComentarios(p.id);
+            }
             document.getElementById('property-card').hidden = false;
+        }
+        static crearElementoComentario(c) {
+            const item = document.createElement('div');
+            item.className = 'comment-item';
+            const meta = document.createElement('div');
+            meta.className = 'comment-meta';
+            const autor = document.createElement('span');
+            autor.className = 'comment-author';
+            autor.textContent = c.autor || 'Anónimo';
+            const fecha = document.createElement('span');
+            fecha.className = 'comment-date';
+            fecha.textContent = formatearFechaComentario(c.creado_en);
+            meta.append(autor, fecha);
+            const texto = document.createElement('p');
+            texto.className = 'comment-text';
+            texto.textContent = c.texto || '';
+            item.append(meta, texto);
+            return item;
+        }
+        static renderizarComentarios(comentarios, total = comentarios.length) {
+            this.comentariosActuales = Array.isArray(comentarios) ? comentarios : [];
+            this.totalComentarios = Number.isFinite(Number(total)) ? Number(total) : this.comentariosActuales.length;
+            const badge = document.getElementById('card-comments-badge');
+            const lista = document.getElementById('card-comments-list');
+            const estadoTexto = document.getElementById('card-comments-status');
+            if (!badge || !lista || !estadoTexto) return;
+            badge.textContent = String(this.totalComentarios);
+            lista.replaceChildren();
+            this.comentariosActuales.forEach((c) => lista.append(this.crearElementoComentario(c)));
+            estadoTexto.hidden = this.comentariosActuales.length > 0;
+            if (!estadoTexto.hidden) {
+                estadoTexto.textContent = 'Todavía no hay comentarios en esta publicación.';
+            }
+        }
+        static mostrarErrorComentario(texto) {
+            const errorEl = document.getElementById('comentario-error');
+            if (!errorEl) return;
+            errorEl.textContent = texto;
+            errorEl.hidden = !texto;
+        }
+        static async cargarComentarios(propiedadId) {
+            this.comentariosController?.abort();
+            const controller = new AbortController();
+            this.comentariosController = controller;
+            const badge = document.getElementById('card-comments-badge');
+            const lista = document.getElementById('card-comments-list');
+            const estadoTexto = document.getElementById('card-comments-status');
+            if (!badge || !lista || !estadoTexto) return;
+            this.comentariosActuales = [];
+            this.totalComentarios = 0;
+            badge.textContent = '…';
+            lista.replaceChildren();
+            estadoTexto.hidden = false;
+            estadoTexto.textContent = 'Cargando comentarios…';
+            try {
+                const url = new URL('/api/propiedades/' + encodeURIComponent(propiedadId) + '/comentarios/', ORIGEN);
+                const respuesta = await fetch(url.href, {
+                    headers: { Accept: 'application/json' },
+                    signal: controller.signal,
+                });
+                if (controller.signal.aborted || this.comentariosController !== controller) return;
+                if (state.propiedadSeleccionada?.id !== propiedadId) return;
+                const datos = await respuesta.json();
+                if (!respuesta.ok || !Array.isArray(datos.comentarios)) {
+                    throw new Error(datos.error || 'No pudimos cargar los comentarios.');
+                }
+                this.renderizarComentarios(datos.comentarios, datos.total);
+            } catch (error) {
+                if (controller.signal.aborted || this.comentariosController !== controller || error.name === 'AbortError') return;
+                badge.textContent = '0';
+                estadoTexto.hidden = false;
+                estadoTexto.textContent = 'No pudimos cargar los comentarios en este momento.';
+            }
+        }
+        static async enviarComentario(evento) {
+            evento.preventDefault();
+            const propiedad = state.propiedadSeleccionada;
+            if (!propiedad || this.enviandoComentario) return;
+            const inputAutor = document.getElementById('comentario-autor');
+            const inputTexto = document.getElementById('comentario-texto');
+            const boton = document.getElementById('btn-enviar-comentario');
+            const autor = (inputAutor?.value || '').trim();
+            const texto = (inputTexto?.value || '').trim();
+            if (autor.length > 60) {
+                this.mostrarErrorComentario('El alias puede tener hasta 60 caracteres.');
+                return;
+            }
+            if (texto.length < 3) {
+                this.mostrarErrorComentario('El comentario debe tener al menos 3 caracteres.');
+                return;
+            }
+            if (texto.length > 500) {
+                this.mostrarErrorComentario('El comentario puede tener hasta 500 caracteres.');
+                return;
+            }
+            this.enviandoComentario = true;
+            this.mostrarErrorComentario('');
+            if (boton) {
+                boton.disabled = true;
+                boton.textContent = 'Publicando…';
+            }
+            try {
+                const url = new URL('/api/propiedades/' + encodeURIComponent(propiedad.id) + '/comentarios/', ORIGEN);
+                const headers = {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                };
+                const tokenCsrf = leerCookie('csrftoken');
+                if (tokenCsrf) headers['X-CSRFToken'] = tokenCsrf;
+                const respuesta = await fetch(url.href, {
+                    method: 'POST',
+                    headers,
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ autor, texto }),
+                });
+                let datos = {};
+                try { datos = await respuesta.json(); }
+                catch { throw new Error('El servidor no pudo procesar el comentario. Reintentá en unos segundos.'); }
+                if (!respuesta.ok || !datos.comentario) {
+                    throw new Error(datos.error || 'No pudimos publicar el comentario.');
+                }
+                if (state.propiedadSeleccionada?.id === propiedad.id) {
+                    inputTexto.value = '';
+                    document.getElementById('comentario-contador').textContent = '0 / 500';
+                    document.getElementById('card-comments-section').open = true;
+                    this.renderizarComentarios(
+                        [datos.comentario, ...this.comentariosActuales],
+                        this.totalComentarios + 1,
+                    );
+                }
+            } catch (error) {
+                this.mostrarErrorComentario(error.message || 'No pudimos publicar el comentario.');
+            } finally {
+                this.enviandoComentario = false;
+                if (boton) {
+                    boton.disabled = false;
+                    boton.textContent = 'Publicar';
+                }
+            }
         }
         static actualizarFoto() {
             const fotos = state.propiedadSeleccionada?.fotos || [], imagen = document.getElementById('card-image');
@@ -552,6 +731,8 @@
             state.fotoIndex = (state.fotoIndex + paso + fotos.length) % fotos.length; this.actualizarFoto();
         }
         static cerrar() {
+            this.comentariosController?.abort();
+            this.comentariosController = null;
             document.getElementById('property-card').hidden = true;
             state.propiedadSeleccionada = null; MapManager.deseleccionarTodos();
         }

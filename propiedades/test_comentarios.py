@@ -167,3 +167,22 @@ class ComentariosPropiedadTests(TestCase):
         resumen = admin_model.resumen_texto(comentario)
         self.assertEqual(len(resumen), 61)
         self.assertTrue(resumen.endswith("…"))
+
+
+    def test_plantilla_mapa_incluye_seccion_de_comentarios_en_la_ficha(self):
+        respuesta = self.client.get("/propiedades/mapa/")
+        self.assertEqual(respuesta.status_code, 200)
+        for elemento_id in (
+            "card-comments-section",
+            "card-comments-badge",
+            "card-comments-status",
+            "card-comments-list",
+            "form-comentario",
+            "comentario-autor",
+            "comentario-texto",
+            "comentario-contador",
+            "btn-enviar-comentario",
+            "comentario-error",
+        ):
+            with self.subTest(elemento_id=elemento_id):
+                self.assertContains(respuesta, f'id="{elemento_id}"', count=1)
