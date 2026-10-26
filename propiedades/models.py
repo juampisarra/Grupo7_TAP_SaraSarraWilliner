@@ -114,6 +114,25 @@ class ConsultaDireccion(models.Model):
     consultada_en = models.DateTimeField(auto_now=True)
 
 
+class ComparacionGenerada(models.Model):
+    """Caché compartida y reserva temporal de una generación en curso."""
+
+    clave = models.CharField(max_length=64, unique=True)
+    modelo = models.CharField(max_length=120)
+    resultado = models.JSONField(default=dict)
+    reserva = models.UUIDField()
+    vence_en = models.DateTimeField(db_index=True)
+    creada_en = models.DateTimeField(auto_now_add=True)
+
+
+class UsoComparacion(models.Model):
+    """Contadores por ventana, compartidos entre los workers de Django."""
+
+    clave = models.CharField(max_length=100, unique=True)
+    solicitudes = models.PositiveIntegerField(default=0)
+    vence_en = models.DateTimeField(db_index=True)
+
+
 class Comentario(models.Model):
     """Comentario público asociado a una publicación del observatorio."""
 

@@ -1,5 +1,6 @@
 from datetime import timedelta
 import json
+import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -10,13 +11,74 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from django.views.decorators.http import require_http_methods, require_safe
+from django.views.decorators.http import require_http_methods, require_safe, require_POST
+from django.views.decorators.cache import never_cache
+from django.utils.crypto import salted_hmac
 
 from .busqueda.cliente import BusquedaNoDisponible
 from .busqueda.texto import buscar_ids
 from .consultas import CAMPOS_CONSULTA, consultar_propiedades
 from .coordenadas import informacion_ubicacion
 from .models import Comentario, Propiedad
+from .comparacion import ErrorComparacion, ids_desde_query, preparar_comparacion
+from .comparacion_ia import analizar_comparacion
+from .llm.cliente import LLMNoDisponible, configurado as ia_configurada
+
+
+def cookie_visitante(request, response):
+    if not request.get_signed_cookie("comparador_visitante", default="", salt="comparacion", max_age=86400):
+        response.set_signed_cookie("comparador_visitante", uuid.uuid4().hex, salt="comparacion",
+                                   max_age=86400, httponly=True, secure=not settings.DEBUG, samesite="Lax")
+    return response
+
+
+def error_comparacion(error):
+    response = JsonResponse({"error": str(error), "codigo": error.codigo,
+                             "ids": getattr(error, "ids", [])}, status=error.status)
+    if error.status == 429:
+        response["Retry-After"] = "60"
+    return response
+
+
+@never_cache
+@require_safe
+def api_comparacion(request):
+    try:
+        datos = preparar_comparacion(ids_desde_query(request.GET), request.GET.get("operacion"))
+    except ErrorComparacion as error:
+        return error_comparacion(error)
+    datos["ia_disponible"] = ia_configurada()
+    return cookie_visitante(request, JsonResponse(datos, json_dumps_params={"ensure_ascii": False}))
+
+
+@never_cache
+@require_POST
+def api_analisis_comparacion(request):
+    try:
+        if request.content_type != "application/json" or len(request.body) > 4096:
+            raise ErrorComparacion("Enviá un objeto JSON de hasta 4096 bytes.")
+        try:
+            entrada = json.loads(request.body.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError, RecursionError):
+            raise ErrorComparacion("El JSON enviado no es válido.") from None
+        if not isinstance(entrada, dict) or set(entrada) != {"ids", "operacion", "firma"}:
+            raise ErrorComparacion("Enviá únicamente ids, operacion y firma de la tabla.")
+        datos = preparar_comparacion(entrada["ids"], entrada["operacion"])
+        if entrada["firma"] != datos["firma"]:
+            raise ErrorComparacion("Los datos cambiaron. Actualizá la tabla antes de generar el análisis.",
+                                   status=409, codigo="datos_cambiaron")
+        visitante = request.get_signed_cookie("comparador_visitante", default="", salt="comparacion", max_age=86400)
+        # Sin cookie válida se limita por la conexión; no confiar en X-Forwarded-For.
+        visitante = salted_hmac("comparacion-visitante", visitante or request.META.get("REMOTE_ADDR", "")).hexdigest()
+        resultado = analizar_comparacion(datos, visitante)
+        # La ingesta puede cambiar los datos mientras Gemini responde.
+        actuales = preparar_comparacion(entrada["ids"], entrada["operacion"])
+        if actuales["firma"] != datos["firma"]:
+            raise ErrorComparacion("Los datos cambiaron durante el análisis. Actualizá la tabla.",
+                                   status=409, codigo="datos_cambiaron")
+        return JsonResponse({**resultado, "firma": datos["firma"]}, json_dumps_params={"ensure_ascii": False})
+    except (ErrorComparacion, LLMNoDisponible) as error:
+        return error_comparacion(error)
 
 
 def enlace_pagina(request, numero):
@@ -189,8 +251,9 @@ def mapa_propiedades(request):
             alquiler=Count("id", filter=Q(en_alquiler=True)),
             venta=Count("id", filter=Q(en_venta=True)),
         ))
-    return render(request, "propiedades/mapa.html", {
+    response = render(request, "propiedades/mapa.html", {
         "tipos_propiedad": tipos,
         "hay_tipos_alquiler": any(tipo["alquiler"] for tipo in tipos),
         "map_config": {"maptilerApiKey": settings.MAPTILER_API_KEY},
     })
+    return cookie_visitante(request, response)

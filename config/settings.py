@@ -107,6 +107,15 @@ ELASTICSEARCH_INDEX = os.getenv("ELASTICSEARCH_INDEX", "propiedades").strip()
 # Necesaria para mostrar el mapa. No es la SECRET_KEY de Django.
 MAPTILER_API_KEY = os.getenv("MAPTILER_API_KEY", "").strip()
 
+# Gemini se invoca únicamente desde la comparación, nunca al iniciar Django.
+# Elegir un modelo disponible en la cuenta de AI Studio; sin él la tabla funciona.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "").strip()
+GEMINI_TIMEOUT = 20
+COMPARACION_LIMITE_VISITANTE = 2  # Generaciones nuevas por minuto y visitante.
+COMPARACION_LIMITE_MINUTO = 5
+COMPARACION_LIMITE_DIA = 100  # Día UTC, independiente del reinicio de cuota de Google.
+
 # Proveedor intercambiable sin cambiar código. Solo jobs, nunca visitas al mapa.
 NOMINATIM_DOMAIN = os.getenv("NOMINATIM_DOMAIN", "nominatim.openstreetmap.org").strip()
 NOMINATIM_USER_AGENT = os.getenv(

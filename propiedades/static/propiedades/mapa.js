@@ -572,6 +572,7 @@
                 this.cargarComentarios(p.id);
             }
             document.getElementById('property-card').hidden = false;
+            emitir('observatorio:ficha', { propiedad: p });
         }
         static crearElementoComentario(c) {
             const item = document.createElement('div');
@@ -735,6 +736,7 @@
             this.comentariosController = null;
             document.getElementById('property-card').hidden = true;
             state.propiedadSeleccionada = null; MapManager.deseleccionarTodos();
+            emitir('observatorio:ficha', { propiedad: null });
         }
     }
 
@@ -754,6 +756,7 @@
             ['alquiler', 'venta'].forEach((operacion) => document.getElementById('btn-op-' + operacion).addEventListener('click', () => {
                 if (state.operacion === operacion) return;
                 state.operacion = operacion; state.precioMin = ''; state.precioMax = '';
+                emitir('observatorio:operacion', { operacion });
                 document.getElementById('precio-min').value = ''; document.getElementById('precio-max').value = '';
                 document.getElementById('moneda-precio').textContent = operacion === 'alquiler' ? 'ARS' : 'USD';
                 ['alquiler', 'venta'].forEach((op) => this.activar(document.getElementById('btn-op-' + op), op === operacion));
@@ -798,7 +801,7 @@
             ['btn-limpiar-filtros', 'btn-reset-empty'].forEach((id) => document.getElementById(id).addEventListener('click', () => this.limpiarFiltros()));
             document.getElementById('btn-reintentar').addEventListener('click', () => this.buscar());
             document.addEventListener('keydown', (e) => {
-                if (e.key !== 'Escape') return;
+                if (e.key !== 'Escape' || document.getElementById('comparador')?.open) return;
                 ['tipos-menu', 'mas-filtros', 'estilos-menu'].forEach(id => {
                     document.getElementById(id).open = false;
                 });

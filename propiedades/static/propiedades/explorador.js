@@ -71,7 +71,7 @@
             });
             window.addEventListener('observatorio:resultados', (evento) => this.actualizar(evento.detail || {}));
             document.addEventListener('keydown', (evento) => {
-                if (evento.key === 'Escape' && !porId('resultados-panel').hidden) this.cerrar();
+                if (evento.key === 'Escape' && !porId('comparador')?.open && !porId('resultados-panel').hidden) this.cerrar();
             });
         }
 
@@ -181,6 +181,8 @@
                 if (window.matchMedia('(max-width: 760px)').matches) this.cerrar();
             });
             tarjeta.append(abrir);
+            const comparar = window.ObservatorioComparador?.crearBoton(propiedad);
+            if (comparar) tarjeta.append(comparar);
             return tarjeta;
         }
     }

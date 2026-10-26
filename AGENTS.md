@@ -57,6 +57,18 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Comparación de publicaciones y Gemini — 25 de octubre de 2026
+
+El usuario aprobó implementar el plan de selección de entre dos y cuatro publicaciones, tabla comparativa y análisis opcional con Gemini. La selección está integrada en tarjetas de la lista y ficha del mapa, conserva IDs entre búsquedas de la misma operación y se limpia al cambiar entre alquiler/venta. El comparador es un diálogo con tabla obtenida de PostgreSQL, sin depender del LLM. Mantiene datos faltantes, monedas, fuente y precisión; no infiere superficies ni precio/m². No amplía la lista del mapa para incluir avisos sin coordenadas.
+
+Los endpoints nuevos son `/api/propiedades/comparacion/` (GET) y `/api/propiedades/comparacion/analisis/` (POST con CSRF). El servidor recupera los datos por ID y comprueba disponibilidad y firma antes y después del análisis. Gemini utiliza REST con `requests` existente, clave privada y modelo configurables mediante `GEMINI_API_KEY`/`GEMINI_MODEL`, salida JSON validada y datos acotados sin comentarios, direcciones, fotos ni coordenadas. Sin configuración funciona la tabla. No hay modelo predeterminado: verificar disponibilidad, cuota y condiciones de la cuenta en AI Studio antes de activarlo.
+
+La migración nueva `0015_comparaciongenerada_usocomparacion`, dependiente de `0014_comentario`, agrega caché compartida por 24 horas, reservas temporales y contadores atómicos. Límites iniciales: 2 generaciones/minuto/visitante, 5/minuto globales y 100/día UTC; ajustar según cuota real. No se aplicó a Supabase. No se introdujeron dependencias, scraping, indexación ni cambios de propiedades productivas.
+
+Los comentarios **ya existen en el código actual**: modelo `Comentario`, migración `0014`, API, admin e interfaz de ficha. Las notas del 24 de octubre que los describen como pendientes son históricas. No se auditó su publicación ni migración productiva en esta implementación.
+
+Validación: 243 pruebas Django (241 aprobadas y dos integraciones PostGIS omitidas con SQLite), cuatro pruebas Node de comparador/lista/mapa/comentarios, `check`, migraciones pendientes de generar y estáticos correctos. SQLite efímero y proveedor simulado; la prueba real de Gemini sigue pendiente. Computer Use se detuvo al no poder determinar con certeza la URL activa de Chrome; no se continuó la automatización ni se eludió el bloqueo. Revisión visual real de escritorio/celular pendiente. Cambios locales, sin commit, push ni despliegue. Ver [contrato, configuración y pruebas](docs/comparacion.md).
+
 ### Panel lateral de resultados del mapa — 24 de octubre de 2026
 
 El equipo pidió avanzar por partes y confirmó como primera etapa únicamente un panel escondible similar al patrón de Airbnb. El panel se abre desde «Ver lista» y muestra solo las propiedades con coordenadas que ya están representadas en el mapa para la búsqueda actual; no realiza otra consulta, no duplica filtros geográficos ni modifica coordenadas. En escritorio desplaza el mapa hacia la derecha y presenta dos columnas de tarjetas; en pantallas de hasta 900 px se superpone, y en celular ocupa todo el ancho. Cerrarlo restaura el mapa y solicita a MapLibre recalcular su tamaño.

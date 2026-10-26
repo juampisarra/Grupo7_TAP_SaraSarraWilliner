@@ -7,7 +7,7 @@
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
     <!-- MapLibre dibuja el mapa de MapTiler; Django proporciona su clave. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261024-panel-filtros">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261025-comparacion">
 </head>
 <body>
 <div class="app-container">
@@ -185,6 +185,7 @@
             <p class="card-location precision-label" id="card-location-precision"></p>
             <div class="card-specs-row" id="card-specs"></div>
             <div class="card-features-row" id="card-features"></div>
+            <button type="button" id="card-comparar" class="comparison-select" aria-pressed="false" hidden>+ Agregar a comparación</button>
             <a id="card-cta-btn" class="card-cta-btn" href="#" target="_blank" rel="noopener noreferrer">Ver aviso original ↗</a>
             <span class="card-agency-source" id="card-agency-source"></span>
 
@@ -212,14 +213,50 @@
             </details>
         </div>
     </article>
+    <section id="comparacion-barra" class="comparison-bar" aria-label="Selección para comparar" hidden>
+        <div class="comparison-bar-heading">
+            <strong id="comparacion-cantidad" aria-live="polite">0/4 seleccionadas</strong>
+            <button type="button" id="btn-limpiar-comparacion" class="text-btn">Limpiar selección</button>
+            <button type="button" id="btn-ocultar-aviso-comparacion" class="text-btn" aria-label="Ocultar aviso de comparación">×</button>
+        </div>
+        <ul id="comparacion-seleccion" class="comparison-selection"></ul>
+        <p id="comparacion-aviso" class="comparison-notice" role="status"></p>
+        <button type="button" id="btn-comparar" class="comparison-primary" disabled>Comparar propiedades</button>
+    </section>
+
+    <dialog id="comparador" class="comparison-dialog" aria-labelledby="comparacion-titulo"
+            data-tabla-url="{% url 'api_comparacion' %}" data-analisis-url="{% url 'api_analisis_comparacion' %}">
+        <header class="comparison-heading">
+            <div><p class="panel-eyebrow">Tus alternativas, lado a lado</p><h2 id="comparacion-titulo">Comparar propiedades</h2></div>
+            <button type="button" id="btn-cerrar-comparador" class="panel-close" aria-label="Cerrar comparación" autofocus>✕</button>
+        </header>
+        <div class="comparison-content">
+            <p id="comparacion-contexto" class="comparison-footnote"></p>
+            <div id="comparacion-tabla" class="comparison-table-scroll" tabindex="0" role="region" aria-label="Tabla comparativa; desplazá para ver todas las propiedades"></div>
+            <section class="comparison-ai" aria-labelledby="comparacion-ia-titulo">
+                <p class="panel-eyebrow">Una ayuda para elegir</p>
+                <h3 id="comparacion-ia-titulo">Comparación con inteligencia artificial</h3>
+                <p>Gemini puede resumir las diferencias y explicar qué ofrece cada alternativa según tus necesidades.</p>
+                <p class="comparison-footnote">Al solicitarlo, se envían a Google datos públicos acotados de las publicaciones. El nivel gratuito puede usarlos para mejorar sus productos. El análisis puede contener errores.</p>
+                <div class="comparison-actions">
+                    <button type="button" id="btn-generar-analisis" class="comparison-primary" disabled>Generar análisis con IA</button>
+                    <button type="button" id="btn-actualizar-comparacion" class="comparison-secondary">Actualizar tabla</button>
+                </div>
+                <p id="comparacion-estado" role="status" aria-live="polite"></p>
+                <div id="comparacion-recuperacion" class="comparison-actions"></div>
+                <div id="comparacion-analisis" class="comparison-analysis" aria-live="polite"></div>
+            </section>
+        </div>
+    </dialog>
     <noscript><p class="search-error">Activá JavaScript para usar el mapa y sus filtros.</p></noscript>
 </div>
 {{ map_config|json_script:"map-config" }}
 <script type="module">
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
-    await import("{% static 'propiedades/mapa.js' %}?v=20261024-panel-filtros");
-    await import("{% static 'propiedades/explorador.js' %}?v=20261024-panel-filtros");
+    await import("{% static 'propiedades/comparador.js' %}?v=20261025-comparacion");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261025-comparacion");
+    await import("{% static 'propiedades/explorador.js' %}?v=20261025-comparacion");
 </script>
 </body>
 </html>
