@@ -6,6 +6,10 @@ Después de confirmar MapTiler, el usuario autorizó recuperar colores, tipograf
 
 ## Panel lateral de resultados
 
+El 27 de octubre el usuario pidió distinguir mejor los filtros desplegados y mantener sus controles alineados. El bloque abierto usa cabecera azul oscuro, texto claro, fondo azul suave, borde y sombra; la flecha indica apertura o cierre. Dentro del lateral, Tipos y Precio/dormitorios conservan columnas independientes y se alinean arriba con Elegir punto. Por debajo de 520 px disponibles, ambos menús permanecen en dos columnas y Elegir punto pasa a la fila siguiente; las opciones y campos de cada menú se apilan para conservar espacio.
+
+Se pueden abrir ambos menús a la vez y editar precio o activar Elegir punto sin que el otro se cierre. Elegir un tipo cierra solamente su menú; clic afuera o Escape conservan el cierre existente. Los desplegables flotantes del mapa conservan su comportamiento previo. CSS y controlador del mapa usan `20261027-filtros-paralelos` para renovar caché. Validación: 27 pruebas Django con SQLite efímero y almacenamiento de estáticos simple en pruebas, regresiones Node de mapa y panel, sintaxis y `git diff --check`. No se realizó una nueva revisión visual independiente de este ajuste; los cambios siguen locales.
+
 El 24 de octubre de 2026 el equipo confirmó avanzar por etapas y comenzar solo con la vista en lista. El botón «Ver lista» abre un panel escondible inspirado en el patrón de Airbnb. En escritorio el panel ocupa aproximadamente la mitad izquierda y MapLibre recalcula el mapa en el espacio restante; hasta 900 px se superpone, y en celular ocupa todo el ancho. Escape o el botón de cierre lo ocultan.
 
 El panel reutiliza las propiedades con coordenadas ya cargadas por la búsqueda del mapa. Por eso siempre representa avisos que tienen marcador y no ejecuta una segunda consulta, no simula coordenadas ni altera la lógica de Elasticsearch/PostgreSQL/PostGIS. Informa la relación entre coincidencias totales y avisos ubicados, usa las fotos existentes y abre la ficha original al pulsar una tarjeta.

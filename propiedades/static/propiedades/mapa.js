@@ -809,8 +809,12 @@
                 this.actualizarPunto(); CardManager.cerrar(); MapManager.cerrarPopup();
             });
             document.addEventListener('click', (e) => {
+                const clicEnFiltrosPanel = document.getElementById('panel-filter-slot')?.contains(e.target);
                 ['tipos-menu', 'mas-filtros', 'estilos-menu'].forEach((id) => {
-                    const menu = document.getElementById(id); if (!menu.contains(e.target)) menu.open = false;
+                    const menu = document.getElementById(id);
+                    // Los desplegables del lateral comparten un área de interacción.
+                    const conservarAbierto = id !== 'estilos-menu' && clicEnFiltrosPanel;
+                    if (!menu.contains(e.target) && !conservarAbierto) menu.open = false;
                 });
             });
             if (typeof ResizeObserver !== 'undefined') {

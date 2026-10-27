@@ -157,6 +157,44 @@ async function main() {
     assert.equal(e.state.punto, null); assert.equal(e.state.radio, 1000); assert.equal(e.state.texto, '');
     assert.equal(e.crearParametros().has('q'), false);
 
+    const filtrosParalelos = entorno();
+    filtrosParalelos.UI.init();
+    filtrosParalelos.PropertyApiClient.buscarPropiedades = () => {};
+    const tiposMenu = filtrosParalelos.porId('tipos-menu');
+    const precioMenu = filtrosParalelos.porId('mas-filtros');
+    const tiposResumen = new Elemento('summary'), precioResumen = new Elemento('summary');
+    tiposMenu.append(tiposResumen, ...filtrosParalelos.tipos);
+    precioMenu.append(precioResumen, filtrosParalelos.porId('precio-min'));
+    const puntoBoton = filtrosParalelos.porId('btn-elegir-punto');
+    filtrosParalelos.porId('filter-dock').append(tiposMenu, precioMenu, puntoBoton);
+    filtrosParalelos.porId('panel-filter-slot').append(filtrosParalelos.porId('filter-dock'));
+    tiposMenu.open = true;
+    filtrosParalelos.eventosDocumento.click({ target: tiposResumen });
+    precioMenu.open = true; // Apertura nativa de details antes de propagar el clic.
+    filtrosParalelos.eventosDocumento.click({ target: precioResumen });
+    assert.equal(tiposMenu.open, true, 'Abrir precio no cierra tipos en el panel lateral');
+    assert.equal(precioMenu.open, true);
+    filtrosParalelos.eventosDocumento.click({ target: filtrosParalelos.porId('precio-min') });
+    assert.equal(tiposMenu.open, true, 'Editar precio conserva ambos desplegables');
+    assert.equal(precioMenu.open, true);
+    puntoBoton.eventos.click();
+    filtrosParalelos.eventosDocumento.click({ target: puntoBoton });
+    assert.equal(filtrosParalelos.state.seleccionandoPunto, true);
+    assert.equal(tiposMenu.open, true, 'Elegir punto conserva ambos desplegables');
+    assert.equal(precioMenu.open, true);
+    filtrosParalelos.tipos[0].eventos.click();
+    filtrosParalelos.eventosDocumento.click({ target: filtrosParalelos.tipos[0] });
+    assert.equal(tiposMenu.open, false, 'Elegir un tipo sigue cerrando su propio menú');
+    assert.equal(precioMenu.open, true, 'Elegir un tipo no cierra precio');
+    tiposMenu.open = true;
+    filtrosParalelos.eventosDocumento.click({ target: new Elemento() });
+    assert.equal(tiposMenu.open, false, 'El clic afuera cierra ambos');
+    assert.equal(precioMenu.open, false);
+    tiposMenu.open = precioMenu.open = true;
+    filtrosParalelos.eventosDocumento.keydown({ key: 'Escape' });
+    assert.equal(tiposMenu.open, false, 'Escape cierra ambos');
+    assert.equal(precioMenu.open, false);
+
     const tiposOperacion = entorno();
     const [casa, campo, nave] = tiposOperacion.tipos;
     campo.dataset.disponibleVenta = 'false';

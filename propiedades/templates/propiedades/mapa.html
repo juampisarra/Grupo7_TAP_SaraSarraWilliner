@@ -7,7 +7,7 @@
     <title>Explorar propiedades · Observatorio Inmobiliario</title>
     <!-- MapLibre dibuja el mapa de MapTiler; Django proporciona su clave. -->
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.css">
-    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261025-comparacion">
+    <link rel="stylesheet" href="{% static 'propiedades/mapa.css' %}?v=20261027-filtros-paralelos">
 </head>
 <body>
 <div class="app-container">
@@ -26,7 +26,7 @@
             <summary>
                 <span class="panel-filters-label">⚙️ Filtros</span>
                 <span id="panel-filtros-resumen">Todos los tipos · Dormitorios · Comodidades</span>
-                <span aria-hidden="true">⌄</span>
+                <span class="panel-filters-chevron" aria-hidden="true"></span>
             </summary>
             <div id="panel-filter-slot" class="panel-filter-slot"></div>
         </details>
@@ -255,7 +255,7 @@
     import * as maplibregl from 'https://unpkg.com/maplibre-gl@6.14.0/dist/maplibre-gl.mjs';
     window.maplibregl = maplibregl;
     await import("{% static 'propiedades/comparador.js' %}?v=20261025-comparacion");
-    await import("{% static 'propiedades/mapa.js' %}?v=20261025-comparacion");
+    await import("{% static 'propiedades/mapa.js' %}?v=20261027-filtros-paralelos");
     await import("{% static 'propiedades/explorador.js' %}?v=20261025-comparacion");
 </script>
 </body>

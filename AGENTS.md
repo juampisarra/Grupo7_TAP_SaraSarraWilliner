@@ -57,6 +57,12 @@ La ruta `/health/` está desplegada. El equipo creó el job en [cron-job.org](ht
 
 ## Estado real del repositorio
 
+### Contraste y desplegables de filtros del lateral — 27 de octubre de 2026
+
+El usuario pidió destacar visualmente el bloque abierto de Filtros y mantener alineados Tipos, Precio/dormitorios y Elegir punto. El lateral usa cabecera azul oscuro, fondo azul claro, borde, sombra y flecha de estado. Los dos menús conservan columnas independientes, alineadas arriba; con hasta 520 px disponibles, Elegir punto pasa a la fila siguiente. Pueden permanecer abiertos al mismo tiempo, incluso al editar precio o activar la selección por punto. Elegir un tipo cierra solo su menú; clic afuera y Escape mantienen el cierre existente. El panel inferior sobre el mapa conserva su comportamiento anterior.
+
+CSS y mapa.js usan `20261027-filtros-paralelos`. Pasaron las 27 pruebas Django de consultas/plantilla con SQLite efímero y almacenamiento de estáticos simple en pruebas, las regresiones Node de mapa y lista (incluida apertura simultánea), sintaxis y `git diff --check`. Sin nueva inspección visual independiente, commit, push ni despliegue. Ver [guía del mapa](docs/mapa.md).
+
 ### Comparación de publicaciones y Gemini — 25 de octubre de 2026
 
 El usuario aprobó implementar el plan de selección de entre dos y cuatro publicaciones, tabla comparativa y análisis opcional con Gemini. La selección está integrada en tarjetas de la lista y ficha del mapa, conserva IDs entre búsquedas de la misma operación y se limpia al cambiar entre alquiler/venta. El comparador es un diálogo con tabla obtenida de PostgreSQL, sin depender del LLM. Mantiene datos faltantes, monedas, fuente y precisión; no infiere superficies ni precio/m². No amplía la lista del mapa para incluir avisos sin coordenadas.
